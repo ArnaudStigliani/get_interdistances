@@ -1,0 +1,720 @@
+### ----------------------------
+### TFBS Interdistances program
+### ----------------------------
+
+'''
+This program allows to calculate interdistances between transcription factor binding sites.
+You need a matrix with frequency values and fasta sequences (bound sequences (i.e. peaks), and unbound sequences).
+This program was written by Adrien Bessy, Arnaud Stigliani and Francois Parcy, and was inspired by Morpheus program written by Eugenio Gomez Minguet
+and (4-scores.py and CalculateScoreAboveTh_and_Interdistances.py) programs written by Laura Gregoire.
+'''
+
+import numpy as np
+from Bio import SeqIO
+import time
+import sys 
+from operator import truediv
+from collections import Counter
+import matplotlib.pyplot as plt
+from matplotlib.offsetbox import AnchoredOffsetbox, TextArea, HPacker, VPacker
+import matplotlib.patches as mpatches
+from matplotlib import pylab
+import types
+import argparse
+import logging
+from optparse import OptionParser
+from scipy import stats
+
+parser = argparse.ArgumentParser()                                               
+
+parser.add_argument("--factor", "-fac", type=str, default= "ARF2")
+parser.add_argument("--file", "-f", type=str,default= "ARF2_bound_sequences.fas")
+parser.add_argument("--matrix", "-mat", type=str,default= "ARF2_score_matrix.txt")
+parser.add_argument("--type", "-type", type=str,default= "score")
+parser.add_argument("--pseudoCount", "-pc", type=float,default= 0.001)
+parser.add_argument("--dependency_positions1", "-dp1", nargs='+', type=int, default= None)
+parser.add_argument("--dependency_positions2", "-dp2",nargs='+',type=int,default= None)
+parser.add_argument("--dependency_positions3", "-dp3",nargs='+',type=int,default= None)
+parser.add_argument("--dependencyFile1", "-df1", type=str,default= "dependency2.txt")
+parser.add_argument("--dependencyFile2", "-df2", type=str,default= "depend_9_10_11_matrix.txt")
+parser.add_argument("--dependencyFile3", "-df3", type=str,default= "depend_14_15_16_matrix.txt")
+parser.add_argument("--threshold", "-th",type=int,default= -25)
+parser.add_argument("--sumthreshold", "-sumTh",nargs='+',type=int,default= -25 -23- 21)
+parser.add_argument("--Interdistance_maxValue", "-maxInter", type=int,default= 20)
+args = parser.parse_args()
+
+#python get_interdistances_two_binding_sites_scores_sum_threshold.py -fac "ARF2" -pc 0.001 -maxInter 20 -sumTh -20 -20
+
+factorTranscription = args.factor
+FastaFile = args.file    
+MatrixFile = args.matrix
+matrixType = args.type
+pseudoCount = args.pseudoCount
+dependency_positions1 = args.dependency_positions1
+dependency_positions2 = args.dependency_positions2
+dependency_positions3 = args.dependency_positions3
+dependencyFile1 = args.dependencyFile1
+dependencyFile2 = args.dependencyFile2
+dependencyFile3 = args.dependencyFile3
+threshold = args.threshold
+Interdistance_maxValue = args.Interdistance_maxValue
+twoAdjacentBSscoreSumThreshold = args.sumthreshold
+                    
+###################Parameters we can change#################
+
+if factorTranscription == "ARF2" :
+	FastaFile = "ARF2_bound_sequences.fas" 
+	MatrixFile = "ARF2_OMalley_matrixC.txt"
+	matrixType = "freq" 
+	dependency_positions1 = [] 
+	dependency_positions2 = [] 
+	dependency_positions3 = [] 
+	
+if factorTranscription == "ARF2_ER7" :
+	FastaFile = "ARF2_bound_sequences.fas" 
+	MatrixFile = "ER8_matrix.txt"
+	matrixType = "freq" 
+	dependency_positions1 = [] 
+	dependency_positions2 = [] 
+	dependency_positions3 = [] 
+	
+if factorTranscription == "ARF5" :
+	FastaFile = "ARF5_bound_sequences.fas" 
+	MatrixFile = "ARF5_OMalley_Cmatrix.txt" 
+	matrixType = "freq" 
+	dependency_positions1 = [] 
+	dependency_positions2 = [] 
+	dependency_positions3 = [] 
+	
+if factorTranscription == "LFY_scores_matrix_19nucl" :
+	FastaFile = "LFY_bound_sequences.fas" 
+	MatrixFile = "LFY_scores_matrix_19nucl.txt" 
+	matrixType = "score" 
+	dependency_positions1 = [4,5,6] 
+	dependency_positions2 = [9,10,11] 
+	dependency_positions3 = [14,15,16] 
+	dependencyFile1 = "depend_4_5_6_matrix.txt"
+	dependencyFile2 = "depend_9_10_11_matrix.txt"
+	dependencyFile3 = "depend_14_15_16_matrix.txt"
+	
+#pseudoCount = 0.001
+#threshold = -16
+#Interdistance_maxValue = 20
+get_occurences_by_position = False
+sequences_number = None # if all sequences write None
+#twoAdjacentBSscoreSumThreshold = [-12,-14,-16] # if none write None
+
+####################### This is useful to calculate interdependances ###########
+
+codigo = { 'ACC': 5,
+           'ATG': 14, 'AAG': 2, 'AAA': 0, 'ATC': 13, 'AAC': 1, 'ATA': 12,
+           'AGG': 10, 'CCT': 23, 'ACT': 7, 'AGC': 9, 'ACA': 4, 'AGA': 8,
+           'CAT': 19, 'AAT': 3, 'ATT': 15, 'CTG': 30, 'CTA': 28,
+           'CTC': 29, 'CAC': 17, 'ACG': 6,'CAA': 16, 'AGT': 11, 'CCA': 20,
+           'CCG': 22, 'CCC': 21, 'TAT': 51, 'GGT': 43, 'TGT': 59, 'CGA': 24,
+           'CAG': 18, 'CGC': 25, 'GAT': 35, 'CGG': 26, 'CTT': 31, 'TGC': 57,
+           'GGG': 42, 'TAG': 50, 'GGA': 40, 'TAA': 48, 'GGC': 41, 'TAC': 49,
+           'GAG': 34, 'TCG': 54, 'TTA': 60, 'GAC': 33, 'CGT': 27, 'TTT': 63,
+           'TCA': 52, 'GCA': 36, 'GTA': 44, 'GCC': 37, 'GTC': 45, 'GCG': 38,
+           'GTG': 46, 'TTC': 61, 'GTT': 47, 'GCT': 39, 'TGA': 56, 'TTG': 62,
+           'TCC': 53, 'TGG': 58, 'GAA': 32, 'TCT': 55}
+           
+codigoi = { "A" : "T", "C" : "G", "G" : "C", "T" : "A"}
+
+###############################################################################
+
+def get_score_matrix(Mdata) :
+	if matrixType == "freq" :
+		## These lines allows to transform the frequency values into scores values
+		matScore = []
+		lenMotif = 0
+		a = 0
+		for i in range(0,len(Mdata)/4):
+			lenMotif = lenMotif + 1
+			if i+1 in dependency_positions1 or dependency_positions2 or dependency_positions3:
+				print("i+1 : ",i+1)
+				for j in range (0,4):
+					matScore.append(0.0)
+			else :
+				fmax = float(max(Mdata[a],Mdata[a+1],Mdata[a+2],Mdata[a+3])) + pseudoCount
+				for j in range (0,4):
+					matScore.append(np.log(float(float(Mdata[a+j]) + pseudoCount) /fmax))
+			a = a + 4
+	else :
+		matScore = map(float,Mdata)
+		lenMotif = len(matScore)/4
+	return (matScore, lenMotif)
+
+def get_dependency_matrix(dependencyFile) : 
+	G = open(dependencyFile,"r")
+	dependency_file_content = G.read().replace("\r","\n") + "\n"
+	G.close()
+	dependency_matrix = num.findall(dependency_file_content)
+	dependency_matrix = map(float, dependency_matrix)
+	return(dependency_matrix)
+	
+def divide(a, b):
+    if b == 0:
+        return np.nan
+    else: 
+        return a/b
+
+def seq_c(site):
+        site_i = site[-1::-1]
+        site_c = ""
+        for x in site_i:
+		y = codigoi[x]
+                site_c = site_c + y
+        return site_c   
+        
+def interdistance_calcul(InterDR,InterER,InterIR,sum_thresold,good_score_positions) :
+	for first in range(0,len(good_score_positions)-1) :
+		firstSubSeq = good_score_positions[first]
+			
+		for second in range(first+1,len(good_score_positions)) :
+			secondSubSeq = good_score_positions[second]
+
+			'''
+			Here we do different substractions according to we get a Direct Repeat (DR), an Inverted Repeat (IR) or an Everted Repeat (ER).
+			Because In the litterature, The interdistance calculation was made between subsequences from our matrix
+			and not between the whole sequences from our matrix.
+			So according to your specific interdistance calculations you can change these lines.
+			'''
+			if factorTranscription == "LFY" :
+				if firstSubSeq[1] == ">" and secondSubSeq[1] == ">" :
+					d = int(secondSubSeq[0]) - (int(firstSubSeq[0]) + lenMotif -1)
+					if Interdistance_maxValue >= d >= 0 :
+						#print("DR sens")
+						#print("firstSubSeq[0] : ",firstSubSeq[0])
+						#print("secondSubSeq[0] : ",secondSubSeq[0])
+						#print("interdist : ",d)
+						InterDR[d] += 1
+				if firstSubSeq[1] == "<" and secondSubSeq[1] == "<" :
+					d = (int(secondSubSeq[0]) + 1) - (int(firstSubSeq[0]) + lenMotif)
+					if Interdistance_maxValue >= d >= 0 :
+						#print("DR antisens")
+						#print("firstSubSeq[0] : ",firstSubSeq[0])
+						#print("secondSubSeq[0] : ",secondSubSeq[0])
+						#print("interdist : ",d)
+						InterDR[d] += 1
+				if firstSubSeq[1] == ">" and secondSubSeq[1] == "<" :
+					d = (int(secondSubSeq[0]) + 1) - (int(firstSubSeq[0]) + lenMotif -1)
+					if Interdistance_maxValue >= d >= 0 :
+						#print("ER")
+						#print("firstSubSeq[0] : ",firstSubSeq[0])
+						#print("secondSubSeq[0] : ",secondSubSeq[0])
+						#print("interdist : ",d)
+						InterER[d] += 1
+				if firstSubSeq[1] == "<" and secondSubSeq[1] == ">" :
+					d = int(secondSubSeq[0]) - (int(firstSubSeq[0]) + lenMotif)
+					if Interdistance_maxValue >= d >= 0 :
+						#print("IR")
+						#print("firstSubSeq[0] : ",firstSubSeq[0])
+						#print("secondSubSeq[0] : ",secondSubSeq[0])
+						#print("interdist : ",d)
+						InterIR[d] += 1
+						
+			if factorTranscription == "LFY_scores_matrix_19nucl" :
+				if firstSubSeq[1] == ">" and secondSubSeq[1] == ">" :
+					d = int(secondSubSeq[0]) - (int(firstSubSeq[0])+ lenMotif)
+					if Interdistance_maxValue >= d >= 0 :
+						#print("DR sens")
+						#print("firstSubSeq[0] : ",firstSubSeq[0])
+						#print("secondSubSeq[0] : ",secondSubSeq[0])
+						#print("interdist : ",d)
+						InterDR[d] += 1
+				if firstSubSeq[1] == "<" and secondSubSeq[1] == "<" :
+					d = (int(secondSubSeq[0])) - (int(firstSubSeq[0]) + lenMotif )
+					if Interdistance_maxValue >= d >= 0 :
+						#print("DR antisens")
+						#print("firstSubSeq[0] : ",firstSubSeq[0])
+						#print("secondSubSeq[0] : ",secondSubSeq[0])
+						#print("interdist : ",d)
+						InterDR[d] += 1
+				if firstSubSeq[1] == ">" and secondSubSeq[1] == "<" :
+					d = (int(secondSubSeq[0]) ) - (int(firstSubSeq[0]) + lenMotif )
+					if Interdistance_maxValue >= d >= 0 :
+						#print("ER")
+						#print("firstSubSeq[0] : ",firstSubSeq[0])
+						#print("secondSubSeq[0] : ",secondSubSeq[0])
+						#print("interdist : ",d)
+						InterER[d] += 1
+				if firstSubSeq[1] == "<" and secondSubSeq[1] == ">" :
+					d = int(secondSubSeq[0]) - (int(firstSubSeq[0]) + lenMotif)
+					if Interdistance_maxValue >= d >= 0 :
+						#print("IR")
+						#print("firstSubSeq[0] : ",firstSubSeq[0])
+						#print("secondSubSeq[0] : ",secondSubSeq[0])
+						#print("interdist : ",d)
+						InterIR[d] += 1
+
+			if factorTranscription == "TGTC" :
+				if firstSubSeq[1] == ">" and secondSubSeq[1] == ">" :
+					d = int(secondSubSeq[0]) - (int(firstSubSeq[0]) + lenMotif)
+					if Interdistance_maxValue >= d >= 0 :
+						InterDR[d] += 1
+				if firstSubSeq[1] == "<" and secondSubSeq[1] == "<" :
+					d = int(secondSubSeq[0]) - (int(firstSubSeq[0]) + lenMotif)
+					if Interdistance_maxValue >= d >= 0 :
+						InterDR[d] += 1
+				if firstSubSeq[1] == ">" and secondSubSeq[1] == "<" :
+					d = int(secondSubSeq[0]) - (int(firstSubSeq[0]) + lenMotif)
+					if Interdistance_maxValue >= d >= 0 :
+						InterER[d] += 1
+				if firstSubSeq[1] == "<" and secondSubSeq[1] == ">" :
+					d = ( int(secondSubSeq[0]) ) -( int(firstSubSeq[0]) + lenMotif )
+					if Interdistance_maxValue >= d >= 0 :
+						InterIR[d] += 1
+
+
+			if factorTranscription == "ARF2" :
+				if int(firstSubSeq[2]) + int(secondSubSeq[2]) > sum_thresold :
+					if firstSubSeq[1] == secondSubSeq[1] :
+						d = ( int(secondSubSeq[0]) +2 ) -( int(firstSubSeq[0]) + lenMotif -2 )
+						if Interdistance_maxValue >= d >= 0 :
+							InterDR[d] += 1
+					if firstSubSeq[1] == ">" and secondSubSeq[1] == "<" :
+						d = ( int(secondSubSeq[0]) +2 ) -( int(firstSubSeq[0]) + lenMotif -2 )
+						if Interdistance_maxValue >= d >= 0 :
+							InterER[d] += 1
+					if firstSubSeq[1] == "<" and secondSubSeq[1] == ">" :
+						d = ( int(secondSubSeq[0]) +2 ) -( int(firstSubSeq[0]) + lenMotif -2 )
+						if Interdistance_maxValue >= d >= 0 :
+							InterIR[d] += 1
+		
+			if factorTranscription == "ARF2_ER7" :
+				if firstSubSeq[1] == ">" and secondSubSeq[1] == ">" :
+					d = int(secondSubSeq[0]) - (int(firstSubSeq[0])+ lenMotif)
+					if Interdistance_maxValue >= d >= 0 :
+						#print("DR sens")
+						#print("firstSubSeq[0] : ",firstSubSeq[0])
+						#print("secondSubSeq[0] : ",secondSubSeq[0])
+						#print("interdist : ",d)
+						InterDR[d] += 1
+				if firstSubSeq[1] == "<" and secondSubSeq[1] == "<" :
+					d = (int(secondSubSeq[0])) - (int(firstSubSeq[0]) + lenMotif )
+					if Interdistance_maxValue >= d >= 0 :
+						#print("DR antisens")
+						#print("firstSubSeq[0] : ",firstSubSeq[0])
+						#print("secondSubSeq[0] : ",secondSubSeq[0])
+						#print("interdist : ",d)
+						InterDR[d] += 1
+				if firstSubSeq[1] == ">" and secondSubSeq[1] == "<" :
+					d = (int(secondSubSeq[0]) ) - (int(firstSubSeq[0]) + lenMotif )
+					if Interdistance_maxValue >= d >= 0 :
+						#print("ER")
+						#print("firstSubSeq[0] : ",firstSubSeq[0])
+						#print("secondSubSeq[0] : ",secondSubSeq[0])
+						#print("interdist : ",d)
+						InterER[d] += 1
+				if firstSubSeq[1] == "<" and secondSubSeq[1] == ">" :
+					d = int(secondSubSeq[0]) - (int(firstSubSeq[0]) + lenMotif)
+					if Interdistance_maxValue >= d >= 0 :
+						#print("IR")
+						#print("firstSubSeq[0] : ",firstSubSeq[0])
+						#print("secondSubSeq[0] : ",secondSubSeq[0])
+						#print("interdist : ",d)
+						InterIR[d] += 1
+
+			if factorTranscription == "ARF5" :
+				if int(firstSubSeq[2]) + int(secondSubSeq[2]) > sum_thresold :
+					if firstSubSeq[1] == ">" and secondSubSeq[1] == ">" :
+						d = ( int(secondSubSeq[0]) +3 ) -( int(firstSubSeq[0]) + lenMotif -1 )
+						if Interdistance_maxValue >= d >= 0 :
+							#print("DR sens")
+							#print("firstSubSeq[0] : ",firstSubSeq[0])
+							#print("secondSubSeq[0] : ",secondSubSeq[0])
+							#print("interdist : ",d)
+							InterDR[d] += 1
+					if firstSubSeq[1] == "<" and secondSubSeq[1] == "<" :
+						d = ( int(secondSubSeq[0]) +1 ) -( int(firstSubSeq[0]) + lenMotif -3)
+						if Interdistance_maxValue >= d >= 0 :
+							#print("DR antisens")
+							#print("firstSubSeq[0] : ",firstSubSeq[0])
+							#print("secondSubSeq[0] : ",secondSubSeq[0])
+							#print("interdist : ",d)
+							InterDR[d] += 1
+					if firstSubSeq[1] == ">" and secondSubSeq[1] == "<" :
+						d = ( int(secondSubSeq[0]) +1 ) -( int(firstSubSeq[0]) + lenMotif -1 )
+						if Interdistance_maxValue >= d >= 0 :
+							#print("ER")
+							#print("firstSubSeq[0] : ",firstSubSeq[0])
+							#print("secondSubSeq[0] : ",secondSubSeq[0])
+							#print("interdist : ",d)
+							InterER[d] += 1
+					if firstSubSeq[1] == "<" and secondSubSeq[1] == ">" :
+						d = ( int(secondSubSeq[0]) +3 ) -( int(firstSubSeq[0]) + lenMotif -3 )
+						if Interdistance_maxValue >= d >= 0 :
+							#print("IR")
+							#print("firstSubSeq[0] : ",firstSubSeq[0])
+							#print("secondSubSeq[0] : ",secondSubSeq[0])
+							#print("interdist : ",d)
+							InterIR[d] += 1
+				
+	return(InterDR,InterER,InterIR)
+
+def calculate_score_dependent_positions(dependency_positions,strandPos,scoreStrandPos,scoreStrandNeg,dependency_matrix):
+	cStrand = ""
+	for lettre in seq_c(strandPos):
+		cStrand = lettre + cStrand
+	cStrand = cStrand[::-1]
+	
+	site = ""
+	Csite = ""
+	for i in dependency_positions:
+		#print("i : ",i)
+		site = site + strandPos[i-1]
+		Csite = Csite + cStrand[i-1]
+	j = codigo[site]
+	k = codigo[Csite]
+	scoreStrandPos = scoreStrandPos + dependency_matrix[j]
+	scoreStrandNeg = scoreStrandNeg + dependency_matrix[k]
+	return(scoreStrandPos, scoreStrandNeg)
+	
+def get_interdist(matF,matRev,FastaFile,dependency_matrix,dependency_positions,threshold,factorTranscription,Interdistance_maxValue,dependency_positions2,dependency_positions3):
+	# This line allows to retrieve all the sequences from the fasta file
+	sequences = SeqIO.to_dict(SeqIO.parse(FastaFile, "fasta"))
+
+	print "  There are %s sequence(s) to analyze"%(len(sequences))
+	allScoresPos = []	
+	allScoresNeg = []
+	sens = ""
+	# We will store in these lists all the occurences of each kind of interdistances between motifs found in all sequences.
+	DR = [] 
+	ER = [] 
+	IR = [] 
+	for a in twoAdjacentBSscoreSumThreshold :
+		DR.append([0] * (Interdistance_maxValue + 1) )
+		ER.append([0] * (Interdistance_maxValue + 1) )
+		IR.append([0] * (Interdistance_maxValue + 1) )
+	
+	positions =[]
+	nb = 0
+	ER7nb = ""
+	# We look at all the fasta sequences:
+	for s in sequences:
+			# We will store in this list all the best scores (see the threshold after) found for subsequences of one sequence
+			#if type(threshold) is list:
+			good_score_positions = [] 
+
+			bestScore = 0
+			positionOfTheBestScore = 0
+			# This line allows to retrieve the DNA sequence
+			seq = sequences[s].seq
+
+			# We look at each sub-sequences of the whole sequence. Each sub-sequence has the same length that the matrix length.
+			for c in range(len(seq) - (lenMotif -1)):
+				strandPos = seq[c:c+lenMotif].upper()
+				#print("strandPos : ",strandPos)
+				test = 0
+				for nu in strandPos :
+					if nu not in ["A","C","G","T"]:
+						test = 1
+				if test == 1:
+					score = "NA"
+				else :
+					n = 0
+					#These lines allows to calculate a score for one sub-sequence
+					scoreStrandPos = 0
+					scoreStrandNeg = 0 
+					while n<lenMotif:
+						if strandPos[n] == 'A':
+							scoreStrandPos = scoreStrandPos + matF[n*4]
+							scoreStrandNeg = scoreStrandNeg + matRev[n*4]
+						elif strandPos[n] == 'C':
+							scoreStrandPos = scoreStrandPos + matF[n*4+1]
+							scoreStrandNeg = scoreStrandNeg + matRev[n*4+1]
+						elif strandPos[n] == 'G':
+							scoreStrandPos = scoreStrandPos + matF[n*4+2]
+							scoreStrandNeg = scoreStrandNeg + matRev[n*4+2]
+						elif strandPos[n] == 'T':
+							scoreStrandPos = scoreStrandPos + matF[n*4+3]
+							scoreStrandNeg = scoreStrandNeg + matRev[n*4+3]			
+						n += 1
+
+					if dependency_positions :
+						scoreStrandPos, scoreStrandNeg = calculate_score_dependent_positions(dependency_positions,strandPos,scoreStrandPos,scoreStrandNeg,dependency_matrix1)
+					if dependency_positions2 :
+						scoreStrandPos, scoreStrandNeg = calculate_score_dependent_positions(dependency_positions2,strandPos,scoreStrandPos,scoreStrandNeg,dependency_matrix2)
+					if dependency_positions3 :
+						scoreStrandPos, scoreStrandNeg = calculate_score_dependent_positions(dependency_positions3,strandPos,scoreStrandPos,scoreStrandNeg,dependency_matrix3)
+					#print("scoreStrandPos : ",scoreStrandPos)
+					#print("scoreStrandNeg : ",scoreStrandNeg)
+					#These lines allows to retrieve the position and the strand where there is a predicted binding site. 
+					#You can change the threshold.
+
+					if scoreStrandPos > threshold:
+						good_score_positions.append([c+1,">",scoreStrandPos])
+
+					if scoreStrandNeg > threshold:
+						good_score_positions.append([c+1,"<",scoreStrandNeg])
+
+			#print("a : ",a)
+			#print("len(a)/2 : ",len(a)/2)
+			#ER7nb = ER7nb + str(len(a)/2) + "\n"
+			# Once we have stored all the positions, we calculate all the interdistances:
+			#print("oui")
+			for interDIR, interEVER, interINVER,sum_thresold in zip(DR,ER,IR,twoAdjacentBSscoreSumThreshold) :
+				interdistance_calcul(interDIR,interEVER,interINVER,sum_thresold,good_score_positions)
+				
+			if sequences_number :
+				nb = nb + 1
+				if nb == sequences_number : 
+					break
+	return(DR,ER,IR,positions,ER7nb)
+
+########################################### About the main matrix #######################
+
+''' The sens of the matrix is important: The positions are on the vertical sens and the bases are on the horizontal sens as described in the example.
+separation between numbers can be spaces, tabulation, comas...
+
+                                                                         Example :   A C G T
+                                                                  position 1:           0.16456   0.21614       0.1565,0.1645
+                                                                  position 2:           0.645; 0.654    0.155 |||||| 0.4444
+                                                                                        ...
+                                                                        '''
+####################################################################################
+
+################### To capture file names where there are unbound sequences ###################
+
+FastaFileNnumber = input("\nHow many fasta files with unbound sequences ? ")
+d = {}
+for i in range (1,FastaFileNnumber+1) :
+	d["FastaFileN{0}".format(i)] = raw_input("\nName of fasta file with unbound sequences: ")
+
+###############################################################################################
+
+# These 3 lines allows to retrieve the matrix from the file
+F = open(MatrixFile,"r")
+matrix = F.read().replace("\r","\n") + "\n"
+F.close()
+
+# These 3 lines allows to retrieve all the individual frequency values from the matrix and put them in order into a list
+import re
+num = re.compile(r"([+-]?\d+[.,]\d+)")
+Mdata = num.findall(matrix)
+
+matScore, lenMotif = get_score_matrix(Mdata)
+
+# The following line allows to produce the reversed matrix
+'''if we take the example given before : A T G C
+			Position 1:      0.4444  0.155  0.654   0.645
+			Position 2:      0.1645  0.1565 0.21614 0.16456
+Now, we can notice that scores change between the positions 1 and 2, and between A and T, and between G and C.
+So we can calculate with this reverse matrix, the score of the complementary strand.
+'''
+matRev = list(reversed(matScore))
+
+if dependency_positions1 :
+	dependency_matrix1 = get_dependency_matrix(dependencyFile1)
+if dependency_positions2 :
+	dependency_matrix2 = get_dependency_matrix(dependencyFile2)
+if dependency_positions3 :
+	dependency_matrix3 = get_dependency_matrix(dependencyFile3)
+
+if not dependency_positions1 :
+	dependency_matrix1 = ''
+if not dependency_positions2 :
+	dependency_matrix2 = ''
+if not dependency_positions3 :
+	dependency_matrix3 = ''
+
+	
+########## get INTERDISTANCE VALUES for POSITIVE sets:
+
+InterDR, InterER, InterIR, positions,ER7nb = get_interdist(matScore,matRev,FastaFile,dependency_matrix1,dependency_positions1,threshold,factorTranscription,Interdistance_maxValue,dependency_positions2,dependency_positions3)
+
+##### For the negative set:
+InterDR_N = []
+InterER_N = []
+InterIR_N = []
+lenThr = 0
+listThr = []
+for a in twoAdjacentBSscoreSumThreshold :
+	InterDR_N.append( [0] * (Interdistance_maxValue + 1) )
+	InterER_N.append( [0] * (Interdistance_maxValue + 1) )
+	InterIR_N.append( [0] * (Interdistance_maxValue + 1) )	
+	listThr.append(lenThr)
+	lenThr = lenThr + 1
+#print("listThr : ",listThr)
+########## get INTERDISTANCE VALUES for NEGATIVE sets				
+		
+for key, fastafileN in d.iteritems() :
+	InterDR_N_temp, InterER_N_temp, InterIR_N_temp, positionsN,ER7nb = get_interdist(matScore,matRev,fastafileN,dependency_matrix1,dependency_positions1,threshold,factorTranscription,Interdistance_maxValue,dependency_positions2,dependency_positions3)
+	for a,b,c,d in zip(InterDR_N_temp,InterER_N_temp,InterIR_N_temp,listThr) :
+		InterDR_N[d] = [x + y for x, y in zip(InterDR_N[d], a)]
+		InterER_N[d] = [x + y for x, y in zip(InterER_N[d], b)]
+		InterIR_N[d] = [x + y for x, y in zip(InterIR_N[d], c)]
+
+if FastaFileNnumber > 0 :
+	for a,b,c,d in zip(InterDR_N,InterER_N,InterIR_N,listThr) :
+		InterDR_N[d] = [x / float(FastaFileNnumber) for x in a]
+		InterER_N[d] = [x / float(FastaFileNnumber) for x in b]
+		InterIR_N[d] = [x / float(FastaFileNnumber) for x in c]
+		
+interdist_sum = []
+interdist_sum_N = []
+
+print("InterDR : ",InterDR)
+
+for a,b,c,d,e,f in zip(InterDR,InterER,InterIR,InterDR_N,InterER_N,InterIR_N) :
+	interdist_sum.append(sum(a) + sum(b) + sum(c))
+	interdist_sum_N.append(sum(d) + sum(e) + sum(f))	
+
+relative_DR = []
+relative_ER = []
+relative_IR = []
+relative_DR_neg = []
+relative_ER_neg = []
+relative_IR_neg = []
+for a,b,c,d,e in zip(twoAdjacentBSscoreSumThreshold,InterDR,interdist_sum,InterDR_N,interdist_sum_N) :
+	relative_DR.append( [x / float(c) for x in b] )
+	if FastaFileNnumber > 0 :
+		relative_DR_neg.append( [x / float(e) for x in d] )
+for a,b,c,d,e in zip(twoAdjacentBSscoreSumThreshold,InterER,interdist_sum,InterER_N,interdist_sum_N) :
+	relative_ER.append( [x / float(c) for x in b] )
+	if FastaFileNnumber > 0 :
+		relative_ER_neg.append( [x / float(e) for x in d] )
+for a,b,c,d,e in zip(twoAdjacentBSscoreSumThreshold,InterIR,interdist_sum,InterIR_N,interdist_sum_N) :
+	relative_IR.append( [x / float(c) for x in b] )
+	if FastaFileNnumber > 0 :
+		relative_IR_neg.append( [x / float(e) for x in d] )
+
+#print("relative_DR : ",relative_DR)	
+#print("relative_ER : ",relative_ER)
+#print("relative_IR : ",relative_IR)
+		
+fig = plt.figure(1,figsize= (18,10))
+indexes1 = range(21)
+
+if FastaFileNnumber > 0 :
+	for a,b in zip(relative_DR,relative_DR_neg) :
+		ax1 = fig.add_subplot(1,3,1)
+		ax1.axis([0, 21, 0, 5.5])
+		ax1.set_xlabel("base pairs between "+factorTranscription+" direct repeats", size = 16)
+		plt.plot(indexes1, map(divide, a, b), lw=2)
+		ax1.set_ylabel("$DRn_+$ frequence / $DRn_-$ frequence", size = 16)
+	for a, b,c in zip(relative_ER,relative_ER_neg,twoAdjacentBSscoreSumThreshold)  :	
+		ax1 = fig.add_subplot(1,3,2)
+		ax1.axis([0, 21, 0, 5.5])
+		ax1.set_xlabel("base pairs between "+factorTranscription+" everted repeats", size = 16)
+		plt.plot(indexes1, map(divide, a, b), lw=2, label= "sum threshold : "+str(c))
+		ax1.set_ylabel("$ERn_+$ frequence / $ERn_-$ frequence", size = 16)
+		plt.legend(bbox_to_anchor=(0., 1.02, 1., .102), loc=3, ncol=2, mode="expand", borderaxespad=0.)
+	for a,b in zip(relative_IR,relative_IR_neg) :	
+		ax1 = fig.add_subplot(1,3,3)
+		ax1.axis([0, 21, 0, 5.5])
+		ax1.set_xlabel("base pairs between "+factorTranscription+" inverted repeats", size = 16)
+		plt.plot(indexes1, map(divide, a, b), lw=2)
+		ax1.set_ylabel("$IRn_+$ frequence / $IRn_-$ frequence", size = 16)
+	plt.show()
+
+else :
+	for a in relative_DR :
+		ax1 = fig.add_subplot(1,3,1)
+		ax1.axis([0, 21, 0, 0.05])
+		ax1.set_xlabel("base pairs between "+factorTranscription+" direct repeats", size = 16)
+		plt.plot(indexes1, a, lw=2)
+		ax1.set_ylabel("$DRn_+$ frequence", size = 16)	
+	for a, c in zip(relative_ER,twoAdjacentBSscoreSumThreshold)  :
+		ax1 = fig.add_subplot(1,3,2)
+		ax1.axis([0, 21, 0, 0.05])
+		ax1.set_xlabel("base pairs between "+factorTranscription+" everted repeats", size = 16)
+		plt.plot(indexes1, a, lw=2, label= "sum threshold : "+str(c))
+		ax1.set_ylabel("$ERn_+$ frequence", size = 16)
+		plt.legend(bbox_to_anchor=(0., 1.02, 1., .102), loc=3, ncol=2, mode="expand", borderaxespad=0.)	
+	for a in relative_IR :	
+		ax1 = fig.add_subplot(1,3,3)
+		ax1.axis([0, 21, 0, 0.05])
+		ax1.set_xlabel("base pairs between "+factorTranscription+" inverted repeats", size = 16)
+		plt.plot(indexes1, a, lw=2)
+		ax1.set_ylabel("$IRn_+$ frequence", size = 16)
+	plt.show()
+
+if get_occurences_by_position == True :	
+	multiple_bars = plt.figure()
+	ax = plt.subplot(111)
+	ax.set_xlabel("position on the sequence", size = 16)
+	labels1, values1 = zip(*Counter(positions).items() )
+	if FastaFileNnumber > 0 :
+		labels2, values2 = zip(*Counter(positionsN).items() )
+		values3 = [a_i - b_i for a_i, b_i in zip(values1, values2)]
+		ax.bar(labels1, values3, color='cornflowerblue')
+		ax.set_ylabel("Occurences of good scores in the bound - unbound DAP-sequences", size = 16)
+	else:
+		ax.bar(labels1, values1, color='cornflowerblue')
+		ax.set_ylabel("Occurences of good scores only in the bound DAP-sequences", size = 16)
+	
+	plt.show()	
+	
+	
+#font = {'family': 'serif',
+	#'color':  'k',
+	#'weight': 'normal',
+	#'size': 16,
+	#}
+#else:	
+	#### Useful for the next "for loop"
+	#plot_num = [1,2,3]
+	#bound = [InterDR,InterER,InterIR]
+	#unbound = [InterDR_N,InterER_N,InterIR_N]
+	#repeatKind = ["direct", "everted" , "inverted"]
+	#oneLetter = ["D","E","I"]
+
+	#################################################################
+	########### Parameters to trace the histograms.
+
+	#fig = plt.figure(1,figsize= (18,10))
+
+	#for a,b,c,d,e in zip(plot_num,bound,unbound,repeatKind,oneLetter):
+
+		### Determine the number of histograms to trace according to the number "a".
+		#ax1 = fig.add_subplot(1,3,a)
+		
+		#width = 1
+		#indexes1 = range(Interdistance_maxValue + 1)
+		
+		#for a in interdist_sum :
+			#relative_frequency_bound = [x / float(a) for x in b[0]]
+		
+		#l = plt.axhline(y = 1)
+		#ax1.axis([0, Interdistance_maxValue + 1, 0, 4])
+		#ax1.set_xlabel("base pairs between TGTCGG "+d+" repeats", size = 16)
+
+		#ax2 = ax1.twinx()
+		#ax2.bar(indexes1,[x * float(10) for x in relative_frequency_bound] , width, color = 'b')
+		
+		#if FastaFileNnumber > 0 :
+			#print("interdist_sum_N : ",interdist_sum_N)
+			#print("interdist_sum_N[0] : ",interdist_sum_N[0])
+			#relative_frequency_unbound = [x / interdist_sum_N[0] for x in c] 
+
+			#rate = map(divide, relative_frequency_bound, relative_frequency_unbound)
+			#print("rate : ", rate)
+			#ax1.bar(indexes1, rate , width, color = 'cornflowerblue')
+			#ax1.set_ylabel(' ', color = 'cornflowerblue', size = 16)
+
+			#ax2.bar(indexes1,[x * float(10) for x in relative_frequency_unbound] , width, color = 'brown', alpha = 0.85)
+			#ax2.set_ylabel(e+'$Rn_+$ frequence /'+e+'$Rn_-$ frequence', color = 'cornflowerblue', size = 16)
+			
+		#ax2.axis([0, Interdistance_maxValue + 1, 0, 4])
+
+		#ybox1 = TextArea(e+"$Rn_+$ frequence (X10)", textprops = dict(color = "b", size = 16,rotation = 90,ha = 'left',va = 'bottom'))
+		#ybox3 = TextArea(e+"$Rn_-$ frequence (X10), ", textprops = dict(color = "brown", size = 16,rotation = 90,ha = 'left',va = 'bottom'))
+		#ybox = VPacker(children = [ybox1, ybox3],align = "bottom", pad = 0, sep = 8)
+		#anchored_ybox = AnchoredOffsetbox(loc = 8, child = ybox, pad = 0., frameon = False, bbox_to_anchor = (-0.08, 0.3), 
+						#bbox_transform = ax2.transAxes, borderpad = 0.)
+		#ax2.add_artist(anchored_ybox)
+		
+		#indexes1 = np.arange(Interdistance_maxValue + 1)
+		#plt.xticks(indexes1 + width * 0.5 , indexes1)
+
+		#plt.text(4, 10, e+"$Rn_+$ = "+e+"Rn number in the bound set", fontdict = font)
+		#plt.text(4, 9, e+"$Rn_-$ = "+e+"Rn number in the unbound set", fontdict = font)
+		#plt.text(4, 8, e+"Rn frequence = "+e+"Rn / $\sum_{i=0}^{i=20} DR_i + ER_i + IR_i$", fontdict = font)
+
+	#plt.tight_layout()
+
+	#plt.show()
+
+
