@@ -39,8 +39,9 @@ parser.add_argument("--sum_threshold", "-sum_threshold", type = bool, default= F
 
 args = parser.parse_args()
 
-#python get_interdistances_with_scores_sum_threshold.py -fac "ARF2" -pc 0.001 -maxInter 20 -th -20 -histo True -neg ARF2_neg1.fas ARF2_neg2.fas -sum_threshold True
-#python get_interdistances_with_scores_sum_threshold.py -fac "ARF5" -pc 0.001 -maxInter 20 -th -15 -histo True -neg
+#python get_interdistances.py -fac "ARF2" -pc 0.001 -maxInter 20 -th -20 -histo True -neg ARF2_neg1.fas ARF2_neg2.fas -sum_threshold True
+#python get_interdistances.py -fac "ARF5" -pc 0.001 -maxInter 20 -th -15 -histo True -neg
+# python get_interdistances.py -fac "LFY_matrix_19nucl" -th -23 -histo True
 
 factorTranscription = args.factor
 negative_sets = args.negative_sets
@@ -58,33 +59,22 @@ if histo == True and len(threshold) > 1 :
 
 if factorTranscription == "ARF2" :
 	FastaFile = "ARF2_bound_sequences.fas" 
-	MatrixFile = "ARF2_OMalley_matrixC.txt" 	
+	MatrixFile = "ARF2_OMalley_matrixC.txt" 
+	matrixType = "freq" 
 	
 if factorTranscription == "ARF5" :
 	FastaFile = "ARF5_bound_sequences.fas" 
 	MatrixFile = "ARF5_OMalley_Cmatrix.txt" 
-
-###############################################################################
-
-# This function allows to transform the frequency values into scores values
-def get_score_matrix(Mdata) :
-	matScore = []
-	lenMotif = 0
-	a = 0
-	for i in range(0,len(Mdata)/4):
-		lenMotif = lenMotif + 1
-		fmax = float(max(Mdata[a],Mdata[a+1],Mdata[a+2],Mdata[a+3])) + pseudoCount
-		for j in range (0,4):
-			matScore.append(np.log(float(float(Mdata[a+j]) + pseudoCount) /fmax))
-		a = a + 4
-	return (matScore, lenMotif)
+	matrixType = "freq" 
 	
-def divide(a, b):
-    if b == 0:
-        return np.nan
-    else: 
-        return a/b  
-        
+if factorTranscription == "LFY_matrix_19nucl" :
+	FastaFile = "LFY_bound_sequences.fas"
+	MatrixFile = "LFY_scores_matrix_19nucl.txt" 
+	dependencyFile = "interdependent_bases_matrix_for_LFY.txt"
+	matrixType = "score" 
+
+###############################################################################       
+      
 def interdistance_calcul(InterDR,InterER,InterIR,sum_thresold,good_score_positions) :
 	for first in range(0,len(good_score_positions)-1) :
 		firstSubSeq = good_score_positions[first]
@@ -164,6 +154,13 @@ def interdistance_calcul(InterDR,InterER,InterIR,sum_thresold,good_score_positio
 						d = ( int(secondSubSeq[0]) +3 ) -( int(firstSubSeq[0]) + lenMotif -3 )
 						if Interdistance_maxValue >= d >= 0 :
 							InterIR[d] += 1
+							
+			if factorTranscription == "LFY_matrix_19nucl" :
+				d = int(secondSubSeq[0]) - (int(firstSubSeq[0])+ lenMotif)
+				if Interdistance_maxValue >= d >= 0 :
+					InterDR[d] += 1
+					InterER[d] += 1
+					InterIR[d] += 1
 		
 	return(InterDR,InterER,InterIR)
 	
@@ -181,6 +178,8 @@ def get_interdist(matF,matRev,FastaFile,threshold,factorTranscription,Interdista
 		DR.append([0] * (Interdistance_maxValue + 1) )
 		ER.append([0] * (Interdistance_maxValue + 1) )
 		IR.append([0] * (Interdistance_maxValue + 1) )
+	
+	score_occurence = 0
 	
 	# We look at all the fasta sequences:
 	for s in sequences:
@@ -225,6 +224,10 @@ def get_interdist(matF,matRev,FastaFile,threshold,factorTranscription,Interdista
 						scoreStrandNeg = scoreStrandNeg + matRev[n*4+3]			
 					n += 1
 		
+				if dependencyFile : 			
+					scoreStrandPos, scoreStrandNeg = add_scores_associated_with_interdependent_positions(get_dependency_matrix(dependencyFile,num),scoreStrandPos,scoreStrandNeg,strandPos)
+
+		
 				#These lines allows to retrieve the position and the strand where there is a predicted binding site. 
 				#You can change the threshold.
 				if sum_threshold == True :
@@ -235,9 +238,13 @@ def get_interdist(matF,matRev,FastaFile,threshold,factorTranscription,Interdista
 				else :
 					for a , b in zip(good_score_positions, threshold) :
 						if scoreStrandPos > b:
+							score_occurence = score_occurence + 1
 							a.append([c+1,">",scoreStrandPos])
-						if scoreStrandNeg > b:
-							a.append([c+1,"<",scoreStrandNeg])
+						if factorTranscription != "LFY_matrix_19nucl" :
+							if scoreStrandNeg > b:
+								score_occurence = score_occurence + 1
+								a.append([c+1,"<",scoreStrandNeg])
+				
 		# Once we have stored all the positions, we calculate all the interdistances:
 		if sum_threshold == True :
 			for interDIR, interEVER, interINVER,sum_thresold in zip(DR,ER,IR,threshold) :
@@ -245,7 +252,7 @@ def get_interdist(matF,matRev,FastaFile,threshold,factorTranscription,Interdista
 		else :
 			for goodScores, interDIR, interEVER, interINVER in zip(good_score_positions,DR,ER,IR) :
 				InterDR,InterER,InterIR = interdistance_calcul(interDIR,interEVER,interINVER,threshold,goodScores)
-
+	print("score_occurence : ",score_occurence)
 	return(DR,ER,IR)
 
 ########################################### About the main matrix #######################
@@ -309,27 +316,28 @@ for a in threshold :
 
 ########## get INTERDISTANCE VALUES for NEGATIVE sets				
 		
-#for key, fastafileN in d.iteritems() :
-for fastafileN in negative_sets :
-	print("fastafileN : ",fastafileN)
-	InterDR_N_temp, InterER_N_temp, InterIR_N_temp = get_interdist(matScore,matRev,fastafileN,threshold,factorTranscription,Interdistance_maxValue)
+if negative_sets :
+	for fastafileN in negative_sets :
+		print("fastafileN : ",fastafileN)
+		InterDR_N_temp, InterER_N_temp, InterIR_N_temp = get_interdist(matScore,matRev,fastafileN,threshold,factorTranscription,Interdistance_maxValue)
 
-	for a,b,c,d in zip(InterDR_N_temp,InterER_N_temp,InterIR_N_temp,listThr) :
-		InterDR_N[d] = [x + y for x, y in zip(InterDR_N[d], a)]
-		InterER_N[d] = [x + y for x, y in zip(InterER_N[d], b)]
-		InterIR_N[d] = [x + y for x, y in zip(InterIR_N[d], c)]
+		for a,b,c,d in zip(InterDR_N_temp,InterER_N_temp,InterIR_N_temp,listThr) :
+			InterDR_N[d] = [x + y for x, y in zip(InterDR_N[d], a)]
+			InterER_N[d] = [x + y for x, y in zip(InterER_N[d], b)]
+			InterIR_N[d] = [x + y for x, y in zip(InterIR_N[d], c)]
 
-if len(negative_sets) > 0 :
-	for a,b,c,d in zip(InterDR_N,InterER_N,InterIR_N,listThr) :
-		InterDR_N[d] = [x / float(len(negative_sets)) for x in a]
-		InterER_N[d] = [x / float(len(negative_sets)) for x in b]
-		InterIR_N[d] = [x / float(len(negative_sets)) for x in c]
+	if len(negative_sets) > 0 :
+		for a,b,c,d in zip(InterDR_N,InterER_N,InterIR_N,listThr) :
+			InterDR_N[d] = [x / float(len(negative_sets)) for x in a]
+			InterER_N[d] = [x / float(len(negative_sets)) for x in b]
+			InterIR_N[d] = [x / float(len(negative_sets)) for x in c]
 		
 interdist_sum = []
 interdist_sum_N = []
-for a,b,c,d,e,f in zip(InterDR,InterER,InterIR,InterDR_N,InterER_N,InterIR_N) :
-	interdist_sum.append(sum(a) + sum(b) + sum(c))
-	interdist_sum_N.append(sum(d) + sum(e) + sum(f))	
+if negative_sets :
+	for a,b,c,d,e,f in zip(InterDR,InterER,InterIR,InterDR_N,InterER_N,InterIR_N) :
+		interdist_sum.append(sum(a) + sum(b) + sum(c))
+		interdist_sum_N.append(sum(d) + sum(e) + sum(f))	
 	
 relative_DR = []
 relative_ER = []
@@ -338,24 +346,25 @@ relative_DR_neg = []
 relative_ER_neg = []
 relative_IR_neg = []
 
-for a,b,c,d,e in zip(threshold,InterDR,interdist_sum,InterDR_N,interdist_sum_N) :
-	relative_DR.append( [x / float(c) for x in b] )
-	if len(negative_sets) > 0 :
-		relative_DR_neg.append( [x / float(e) for x in d] )
-for a,b,c,d,e in zip(threshold,InterER,interdist_sum,InterER_N,interdist_sum_N) :
-	relative_ER.append( [x / float(c) for x in b] )
-	if len(negative_sets) > 0 :
-		relative_ER_neg.append( [x / float(e) for x in d] )
-for a,b,c,d,e in zip(threshold,InterIR,interdist_sum,InterIR_N,interdist_sum_N) :
-	relative_IR.append( [x / float(c) for x in b] )
-	if len(negative_sets) > 0 :
-		relative_IR_neg.append( [x / float(e) for x in d] )
+if negative_sets :
+	for a,b,c,d,e in zip(threshold,InterDR,interdist_sum,InterDR_N,interdist_sum_N) :
+		relative_DR.append( [x / float(c) for x in b] )
+		if len(negative_sets) > 0 :
+			relative_DR_neg.append( [x / float(e) for x in d] )
+	for a,b,c,d,e in zip(threshold,InterER,interdist_sum,InterER_N,interdist_sum_N) :
+		relative_ER.append( [x / float(c) for x in b] )
+		if len(negative_sets) > 0 :
+			relative_ER_neg.append( [x / float(e) for x in d] )
+	for a,b,c,d,e in zip(threshold,InterIR,interdist_sum,InterIR_N,interdist_sum_N) :
+		relative_IR.append( [x / float(c) for x in b] )
+		if len(negative_sets) > 0 :
+			relative_IR_neg.append( [x / float(e) for x in d] )
 		
 fig = plt.figure(1,figsize= (18,10))
 indexes1 = range(Interdistance_maxValue + 1)
 width = 1
 
-if len(negative_sets) > 0 :
+if negative_sets and len(negative_sets) > 0 :
 	for a,b in zip(relative_DR,relative_DR_neg) :
 		ax1 = fig.add_subplot(1,3,1)
 		ax1.set_xlabel("base pairs between "+factorTranscription+" direct repeats", size = 16)
@@ -449,55 +458,55 @@ if len(negative_sets) > 0 :
 	plt.show()
 
 else :
-	for a in relative_DR :
-		ax1 = fig.add_subplot(1,3,1)
+	print("InterDR : ",InterDR)
+	for a in InterDR :
+		if factorTranscription == "LFY_matrix_19nucl" :
+			ax1 = fig.add_subplot(1,1,1)
+		else :	
+			ax1 = fig.add_subplot(1,3,1)
 		ax1.set_xlabel("base pairs between "+factorTranscription+" direct repeats", size = 16)
-		if histo == True :
-			indexes1 = range(Interdistance_maxValue + 1)
-			ax1.axis([0, Interdistance_maxValue + 1, 0, 5.5])
-			ax1.bar(indexes1, map(divide, a, b) , width , color = 'cornflowerblue')
-			ax2 = ax1.twinx()
-			ax2.axis([0, Interdistance_maxValue + 1, 0, 5.5])
-			ax2.bar(indexes1,[x * float(10) for x in a] , width , color = 'b')
-			indexes1 = np.arange(Interdistance_maxValue + 1)
+		if not negative_sets and histo == True :
+			ax1.set_xlabel("base pairs between LFY 19 nucleotides matrix", size = 16)
+			indexes1 = range(20 + 1)
+			ax1.axis([0, 20 + 1, 0, 350])
+			ax1.bar(indexes1, a , width , color = 'cornflowerblue')
+			ax1.set_ylabel("occurences", color = 'cornflowerblue', size = 16)
+			indexes1 = np.arange(20 + 1)
 			plt.xticks(indexes1 + width * 0.5 , indexes1)
+			plt.text(8, 230, sys.argv)
 		else :
 			plt.plot(indexes1, a, lw=2)
 			ax1.axis([0, Interdistance_maxValue + 1, 0, 0.05])
 			ax1.set_ylabel("$DRn_+$ frequence", size = 16)	
-	for a, c in zip(relative_ER,threshold)  :
-		ax1 = fig.add_subplot(1,3,2)
-		ax1.set_xlabel("base pairs between "+factorTranscription+" everted repeats", size = 16)
-		if histo == True :
-			indexes1 = range(Interdistance_maxValue + 1)
-			ax1.axis([0, Interdistance_maxValue + 1, 0, 5.5])
-			ax1.bar(indexes1, map(divide, a, b) , width , color = 'cornflowerblue')
-			ax2 = ax1.twinx()
-			ax2.axis([0, Interdistance_maxValue + 1, 0, 5.5])
-			ax2.bar(indexes1,[x * float(10) for x in a] , width , color = 'b')
-			indexes1 = np.arange(Interdistance_maxValue + 1)
-			plt.xticks(indexes1 + width * 0.5 , indexes1)
-		else :
-			plt.plot(indexes1, a, lw=2, label= "threshold : "+str(c))
-			ax1.axis([0, Interdistance_maxValue + 1, 0, 0.05])
-			ax1.set_ylabel("$ERn_+$ frequence", size = 16)
-			plt.legend(bbox_to_anchor=(0., 1.02, 1., .102), loc=3, ncol=2, mode="expand", borderaxespad=0.)	
-	for a in relative_IR :	
-		ax1 = fig.add_subplot(1,3,3)
-		ax1.set_xlabel("base pairs between "+factorTranscription+" inverted repeats", size = 16)
-		if histo == True :
-			indexes1 = range(Interdistance_maxValue + 1)
-			ax1.axis([0, Interdistance_maxValue + 1, 0, 5.5])
-			ax1.bar(indexes1, map(divide, a, b) , width , color = 'cornflowerblue')
-			ax2 = ax1.twinx()
-			ax2.axis([0, Interdistance_maxValue + 1, 0, 5.5])
-			ax2.bar(indexes1,[x * float(10) for x in a] , width , color = 'b')
-			indexes1 = np.arange(Interdistance_maxValue + 1)
-			plt.xticks(indexes1 + width * 0.5 , indexes1)
-		else:
-			plt.plot(indexes1, a, lw=2)
-			ax1.axis([0, Interdistance_maxValue + 1, 0, 0.05])
-			ax1.set_ylabel("$IRn_+$ frequence", size = 16)
+	if factorTranscription != "LFY_matrix_19nucl" :
+		for a, c in zip(InterER,threshold)  :
+			ax1 = fig.add_subplot(1,3,2)
+			ax1.set_xlabel("base pairs between "+factorTranscription+" everted repeats", size = 16)
+			if not negative_sets and histo == True :
+				indexes1 = range(Interdistance_maxValue + 1)
+				ax1.axis([0, Interdistance_maxValue + 1, 0, 350])
+				ax1.bar(indexes1, a , width , color = 'cornflowerblue')
+				indexes1 = np.arange(Interdistance_maxValue + 1)
+				plt.xticks(indexes1 + width * 0.5 , indexes1)
+			else :
+				plt.plot(indexes1, a, lw=2, label= "threshold : "+str(c))
+				ax1.axis([0, Interdistance_maxValue + 1, 0, 0.05])
+				ax1.set_ylabel("$ERn_+$ frequence", size = 16)
+				plt.legend(bbox_to_anchor=(0., 1.02, 1., .102), loc=3, ncol=2, mode="expand", borderaxespad=0.)	
+	if factorTranscription != "LFY_matrix_19nucl" :
+		for a in InterIR :	
+			ax1 = fig.add_subplot(1,3,3)
+			ax1.set_xlabel("base pairs between "+factorTranscription+" inverted repeats", size = 16)
+			if not negative_sets and histo == True :
+				indexes1 = range(Interdistance_maxValue + 1)
+				ax1.axis([0, Interdistance_maxValue + 1, 0, 350])
+				ax1.bar(indexes1, a , width , color = 'cornflowerblue')
+				indexes1 = np.arange(Interdistance_maxValue + 1)
+				plt.xticks(indexes1 + width * 0.5 , indexes1)
+			else:
+				plt.plot(indexes1, a, lw=2)
+				ax1.axis([0, Interdistance_maxValue + 1, 0, 0.05])
+				ax1.set_ylabel("$IRn_+$ frequence", size = 16)
 	plt.show()
 
 
