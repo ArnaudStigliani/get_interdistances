@@ -75,8 +75,8 @@ if factorTranscription == "ARF5" :
 	
 if factorTranscription == "LFY_matrix_19nucl" :
 	FastaFile = "../sequences/LFY_bound_sequences.fas"
-	MatrixFile = "LFY_scores_matrix_19nucl.txt" 
-	dependencyFile = "interdependent_bases_matrix_for_LFY.txt"
+	MatrixFile = "../matrix/LFY_scores_matrix_19nucl.txt" 
+	dependencyFile = "../matrix/interdependent_bases_matrix_for_LFY.txt"
 	matrixType = "score" 
 
 ###############################################################################       

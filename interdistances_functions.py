@@ -1,4 +1,5 @@
 import re
+import numpy as np
 
 ####################### This is useful to calculate interdependances ###########
 
@@ -17,7 +18,7 @@ codigoi = { "A" : "T", "C" : "G", "G" : "C", "T" : "A"}
 
 ###############################################################################
 
-def get_score_matrix(Mdata,matrixType) :
+def get_score_matrix(Mdata,matrixType,pseudoCount) :
 	if matrixType == "freq" :
 		## These lines allows to transform the frequency values into scores values
 		matScore = []
@@ -25,14 +26,9 @@ def get_score_matrix(Mdata,matrixType) :
 		a = 0
 		for i in range(0,len(Mdata)/4):
 			lenMotif = lenMotif + 1
-			if i+1 in dependency_positions1 or dependency_positions2 or dependency_positions3:
-				print("i+1 : ",i+1)
-				for j in range (0,4):
-					matScore.append(0.0)
-			else :
-				fmax = float(max(Mdata[a],Mdata[a+1],Mdata[a+2],Mdata[a+3])) + pseudoCount
-				for j in range (0,4):
-					matScore.append(np.log(float(float(Mdata[a+j]) + pseudoCount) /fmax))
+			fmax = float(max(Mdata[a],Mdata[a+1],Mdata[a+2],Mdata[a+3])) + pseudoCount
+			for j in range (0,4):
+				matScore.append(np.log(float(float(Mdata[a+j]) + pseudoCount) /fmax))
 			a = a + 4
 	else :
 		matScore = map(float,Mdata)

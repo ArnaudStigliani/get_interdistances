@@ -19,7 +19,6 @@ currentdir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentfram
 parentdir = os.path.dirname(currentdir)
 sys.path.insert(0,parentdir) 
 from interdistances_functions import *
-#sys.path.insert(0, '../')
 from operator import truediv
 import operator
 from collections import Counter
