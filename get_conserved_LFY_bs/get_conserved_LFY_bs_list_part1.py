@@ -34,7 +34,7 @@ parser.add_argument("--threshold", "-th",type=int,default= -23)
 parser.add_argument("--pseudoCount", "-pc",type = float, default = 0.001)
 args = parser.parse_args()
 
-#python get_conserved_LFY_bs_list.py -fac "ARF2" -th -12
+#python get_conserved_LFY_bs_list_part1.py -fac "ARF2" -th -12
 
 factorTranscription = args.factor
 threshold = args.threshold

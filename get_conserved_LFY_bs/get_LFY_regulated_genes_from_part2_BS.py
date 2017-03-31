@@ -1,0 +1,37 @@
+import os,sys,inspect
+currentdir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
+parentdir = os.path.dirname(currentdir)
+sys.path.insert(0,parentdir) 
+import pprint
+from BCBio.GFF import GFFExaminer
+from BCBio import GFF
+import ast
+
+in_file = "../../big_files/TAIR10_GFF3_genes.gff"
+
+with open('list_of_the_LFY_binding_sites_PART2.txt', 'r') as f:
+	mylist = ast.literal_eval(f.read())
+
+#print("mylist : ",mylist)	
+	
+limit_info = dict(
+        gff_type = ["gene"])
+
+print("len(mylist) : ", len(mylist))      
+listOfGeneIDs = []
+       
+in_handle = open(in_file)
+for rec in GFF.parse(in_handle, limit_info=limit_info):
+	for i in range(0,len(rec.features)):
+		for j in mylist :
+			if  rec.features[i].location.start - 1000 <= j[1] < rec.features[i].location.start :
+				listOfGeneIDs.append(rec.features[i].id)
+in_handle.close()
+
+listOfGeneIDs = list(set(listOfGeneIDs))
+
+print("len(listOfGeneIDs) : ", len(listOfGeneIDs))
+
+text_file = open("list_of_the_LFY_regulated_genes.txt", "w")
+text_file.write(str(listOfGeneIDs))
+text_file.close()
