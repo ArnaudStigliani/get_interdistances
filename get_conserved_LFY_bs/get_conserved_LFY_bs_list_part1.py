@@ -178,7 +178,7 @@ chr5_max = max(i[2] for i in chr5_list)
 ###### STEP 2: Applying a loop on all the vcf files and retrieve the new sequences
 print(1)
 def add_modified_sequences_from_accessions():
-	vcf_reader = vcf.Reader(filename='../../extraPrograms_or_big_files/VCF_files/1001genomes_snp-short-indel_only_ACGTN.vcf.gz')
+	vcf_reader = vcf.Reader(filename='../../big_files/VCF_files/1001genomes_snp-short-indel_only_ACGTN.vcf.gz')
 	for record in vcf_reader.fetch('1',chr1_min,chr1_max):
 		for LFY_bs_list in chr1_list:
 			if LFY_bs_list[1] <= record.POS < LFY_bs_list[2] :
@@ -210,8 +210,8 @@ list_of_binding_sites = add_modified_sequences_from_accessions()
 
 print("len(list_of_binding_sites) : ",len(list_of_binding_sites))
 
-text_file = open("list_of_the_LFY_binding_sites.txt", "w")
-text_file.write(str(list_of_ARF2_binding_sites))
+text_file = open("list_of_the_ARF2_binding_sites.txt", "w")
+text_file.write(str(list_of_binding_sites))
 text_file.close()
 
 # loop on list_of_the_LFY_binding_sites to retrieve the sequences and write to fasta file.		

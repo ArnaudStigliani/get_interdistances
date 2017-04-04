@@ -44,8 +44,9 @@ parser.add_argument("--sum_threshold", "-sum_threshold", type = bool, default= F
 
 args = parser.parse_args()
 
-#python get_interdistances.py -fac "ARF2" -pc 0.001 -maxInter 20 -th -20 -histo True -neg ARF2_neg1.fas ARF2_neg2.fas -sum_threshold True
+#python get_interdistances.py -fac "ARF2" -pc 0.001 -maxInter 20 -th -12 -histo True -neg ../sequences/ARF2_neg1.fas ../sequences/ARF2_neg2.fas ../sequences/ARF2_neg3.fas ../sequences/ARF2_neg4.fas
 #python get_interdistances.py -fac "ARF5" -pc 0.001 -maxInter 20 -th -15 -histo True -neg
+# python get_interdistances.py -fac "LFY_matrix_19nucl" -th -23 -histo True
 # python get_interdistances.py -fac "LFY_matrix_19nucl" -th -23 -histo True
 
 factorTranscription = args.factor
@@ -63,14 +64,17 @@ if histo == True and len(threshold) > 1 :
 ###################Parameters we can change#################
 
 if factorTranscription == "ARF2" :
-	FastaFile = "ARF2_bound_sequences.fas" 
-	MatrixFile = "ARF2_OMalley_matrixC.txt" 
+	FastaFile = "../sequences/ARF2_bound_sequences.fas" 
+	MatrixFile = "../matrix/ARF2_DR_matrix.txt" 
+	#MatrixFile = "ARF2_OMalley_matrixC.txt" 
 	matrixType = "freq" 
+	dependencyFile = ""
 	
 if factorTranscription == "ARF5" :
 	FastaFile = "ARF5_bound_sequences.fas" 
 	MatrixFile = "ARF5_OMalley_Cmatrix.txt" 
 	matrixType = "freq" 
+	dependencyFile = ""
 	
 if factorTranscription == "LFY_matrix_19nucl" :
 	FastaFile = "../sequences/LFY_bound_sequences.fas"
@@ -229,7 +233,7 @@ def get_interdist(matF,matRev,FastaFile,threshold,factorTranscription,Interdista
 						scoreStrandNeg = scoreStrandNeg + matRev[n*4+3]			
 					n += 1
 		
-				if dependencyFile : 			
+				if dependencyFile != "" : 			
 					scoreStrandPos, scoreStrandNeg = add_scores_associated_with_interdependent_positions(get_dependency_matrix(dependencyFile,num),scoreStrandPos,scoreStrandNeg,strandPos)
 
 		
@@ -291,7 +295,7 @@ F.close()
 num = re.compile(r"([+-]?\d+[.,]\d+)")
 Mdata = num.findall(matrix)
 
-matScore, lenMotif = get_score_matrix(Mdata,matrixType)
+matScore, lenMotif = get_score_matrix(Mdata,matrixType,pseudoCount)
 
 # The following line allows to produce the reversed matrix
 '''if we take the example given before : A T G C
