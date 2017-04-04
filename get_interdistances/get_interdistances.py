@@ -65,8 +65,8 @@ if histo == True and len(threshold) > 1 :
 
 if factorTranscription == "ARF2" :
 	FastaFile = "../sequences/ARF2_bound_sequences.fas" 
-	MatrixFile = "../matrix/ARF2_DR_matrix.txt" 
-	#MatrixFile = "ARF2_OMalley_matrixC.txt" 
+	#MatrixFile = "../matrix/ARF2_DR8_matrix.txt" 
+	MatrixFile = "../matrix/ARF2_OMalley_matrixC.txt" 
 	matrixType = "freq" 
 	dependencyFile = ""
 	

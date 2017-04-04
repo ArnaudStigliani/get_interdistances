@@ -44,7 +44,7 @@ parser.add_argument("--sum_threshold", "-sum_threshold", type = bool, default= F
 
 args = parser.parse_args()
 
-#python get_interdistances.py -fac "ARF2" -pc 0.001 -maxInter 20 -th -12 -histo True -neg ARF2_neg1.fas ARF2_neg2.fas ARF2_neg3.fas ARF2_neg4.fas
+#python get_interdistances.py -fac "ARF2" -pc 0.001 -maxInter 20 -th -12 -histo True -neg ../sequences/ARF2_neg1.fas ../sequences/ARF2_neg2.fas ../sequences/ARF2_neg3.fas ../sequences/ARF2_neg4.fas
 #python get_interdistances.py -fac "ARF5" -pc 0.001 -maxInter 20 -th -15 -histo True -neg
 # python get_interdistances.py -fac "LFY_matrix_19nucl" -th -23 -histo True
 # python get_interdistances.py -fac "LFY_matrix_19nucl" -th -23 -histo True
@@ -65,8 +65,8 @@ if histo == True and len(threshold) > 1 :
 
 if factorTranscription == "ARF2" :
 	FastaFile = "../sequences/ARF2_bound_sequences.fas" 
-	MatrixFile = "../matrix/ARF2_DR_matrix.txt" 
-	#MatrixFile = "ARF2_OMalley_matrixC.txt" 
+	#MatrixFile = "../matrix/ARF2_DR8_matrix.txt" 
+	MatrixFile = "ARF2_OMalley_matrixC.txt" 
 	matrixType = "freq" 
 	dependencyFile = ""
 	

@@ -9,6 +9,11 @@ This program was written by Adrien Bessy, Arnaud Stigliani and Francois Parcy, a
 and (4-scores.py and CalculateScoreAboveTh_and_Interdistances.py) programs written by Laura Gregoire.
 '''
 
+import os,sys,inspect
+currentdir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
+parentdir = os.path.dirname(currentdir)
+sys.path.insert(0,parentdir) 
+from interdistances_functions import *
 import numpy as np
 from Bio import SeqIO
 import time
@@ -25,6 +30,7 @@ import argparse
 import logging
 from optparse import OptionParser
 from scipy import stats
+import collections
 
 parser = argparse.ArgumentParser()                                               
 
@@ -33,12 +39,6 @@ parser.add_argument("--file", "-f", type=str,default= "ARF2_bound_sequences.fas"
 parser.add_argument("--matrix", "-mat", type=str,default= "ARF2_score_matrix.txt")
 parser.add_argument("--type", "-type", type=str,default= "score")
 parser.add_argument("--pseudoCount", "-pc",type=float,default= 0.001)
-parser.add_argument("--dependency_positions1", "-dp1", nargs='+', type=int, default= None)
-parser.add_argument("--dependency_positions2", "-dp2",nargs='+',type=int,default= None)
-parser.add_argument("--dependency_positions3", "-dp3",nargs='+',type=int,default= None)
-parser.add_argument("--dependencyFile1", "-df1", type=str,default= "dependency2.txt")
-parser.add_argument("--dependencyFile2", "-df2", type=str,default= "depend_9_10_11_matrix.txt")
-parser.add_argument("--dependencyFile3", "-df3", type=str,default= "depend_14_15_16_matrix.txt")
 parser.add_argument("--threshold", "-th",nargs='+',type=int,default= -25 -23- 21)
 parser.add_argument("--Interdistance_maxValue", "-maxInter", type=int,default= 20)
 args = parser.parse_args()
@@ -50,12 +50,6 @@ FastaFile = args.file
 MatrixFile = args.matrix
 matrixType = args.type
 pseudoCount = args.pseudoCount
-dependency_positions1 = args.dependency_positions1
-dependency_positions2 = args.dependency_positions2
-dependency_positions3 = args.dependency_positions3
-dependencyFile1 = args.dependencyFile1
-dependencyFile2 = args.dependencyFile2
-dependencyFile3 = args.dependencyFile3
 threshold = args.threshold
 Interdistance_maxValue = args.Interdistance_maxValue
                     
@@ -73,23 +67,6 @@ if factorTranscription == "ARF5" :
 	MatrixFile = "ARF5_OMalley_Cmatrix.txt" 
 	matrixType = "freq" 
 #############################################################""
-
-def get_score_matrix(Mdata) :
-	if matrixType == "freq" :
-		## These lines allows to transform the frequency values into scores values
-		matScore = []
-		lenMotif = 0
-		a = 0
-		for i in range(0,len(Mdata)/4):
-			lenMotif = lenMotif + 1
-			fmax = float(max(Mdata[a],Mdata[a+1],Mdata[a+2],Mdata[a+3])) + pseudoCount
-			for j in range (0,4):
-				matScore.append(np.log(float(float(Mdata[a+j]) + pseudoCount) /fmax))
-			a = a + 4
-	else :
-		matScore = map(float,Mdata)
-		lenMotif = len(matScore)/4
-	return (matScore, lenMotif)
   
 	
 def get_DR_basePair_freq(matF,FastaFile,threshold,factorTranscription,Interdistance_maxValue):
@@ -157,7 +134,7 @@ def get_DR_basePair_freq(matF,FastaFile,threshold,factorTranscription,Interdista
 					if factorTranscription == "ARF2" :
 						if firstSubSeq[1] == ">" and  secondSubSeq[1] == ">":
 							d = ( int(secondSubSeq[0]) +2 ) -( int(firstSubSeq[0]) + lenMotif -2)
-							if Interdistance_maxValue >= d >= 0 :
+							if d == 8 :
 								DRmotif.append(firstSubSeq)
 			index = index + 1
 	#print("DRmotif : ",DRmotif)
@@ -207,7 +184,7 @@ import re
 num = re.compile(r"([+-]?\d+[.,]\d+)")
 Mdata = num.findall(matrix)
 
-matScore, lenMotif = get_score_matrix(Mdata)
+matScore, lenMotif = get_score_matrix(Mdata,matrixType,pseudoCount)
 
 # The following line allows to produce the reversed matrix
 '''if we take the example given before : A T G C
@@ -224,48 +201,48 @@ DRbp1,DRbp2,DRbp3,DRbp4,DRbp5,DRbp6,DRbp7,DRbp8,DRbp9,DRbp10 = get_DR_basePair_f
 
 
 c =  {n: float(DRbp1.count(n))/float(len(DRbp1)) for n in DRbp1}
-print("1 : ")
-c1 = sorted(c.items(), key=operator.itemgetter(1),reverse=True)
+c1 = collections.OrderedDict(sorted(c.items()))
+
 
 c =  {n: float(DRbp2.count(n))/float(len(DRbp2)) for n in DRbp2}
 print("2 : ")
-c2 = sorted(c.items(), key=operator.itemgetter(1),reverse=True)
+c2 = collections.OrderedDict(sorted(c.items()))
 
 c =  {n: float(DRbp3.count(n))/float(len(DRbp3)) for n in DRbp3}
 print("3 : ")
-c3 = sorted(c.items(), key=operator.itemgetter(1),reverse=True)
+c3 = collections.OrderedDict(sorted(c.items()))
 
 c =  {n: float(DRbp4.count(n))/float(len(DRbp4)) for n in DRbp4}
 print("4 : ")
-c4 = sorted(c.items(), key=operator.itemgetter(1),reverse=True)
+c4 = collections.OrderedDict(sorted(c.items()))
 
 c =  {n: float(DRbp5.count(n))/float(len(DRbp5)) for n in DRbp5}
 print("5 : ")
-c5 = sorted(c.items(), key=operator.itemgetter(1),reverse=True)
+c5 = collections.OrderedDict(sorted(c.items()))
 
 c =  {n: float(DRbp6.count(n))/float(len(DRbp6)) for n in DRbp6}
 print("6 : ")
-c6 = sorted(c.items(), key=operator.itemgetter(1),reverse=True)
+c6 = collections.OrderedDict(sorted(c.items()))
 
 c =  {n: float(DRbp7.count(n))/float(len(DRbp7)) for n in DRbp7}
 print("7 : ")
-c7 = sorted(c.items(), key=operator.itemgetter(1),reverse=True)
+c7 = collections.OrderedDict(sorted(c.items()))
 
 c =  {n: float(DRbp8.count(n))/float(len(DRbp8)) for n in DRbp8}
 print("8 : ")
-c8 = sorted(c.items(), key=operator.itemgetter(1),reverse=True)
+c8 = collections.OrderedDict(sorted(c.items()))
 
 c =  {n: float(DRbp9.count(n))/float(len(DRbp9)) for n in DRbp9}
 print("9 : ")
-c9 = sorted(c.items(), key=operator.itemgetter(1),reverse=True)
+c9 = collections.OrderedDict(sorted(c.items()))
 
 c =  {n: float(DRbp10.count(n))/float(len(DRbp10)) for n in DRbp10}
 print("10 : ")
-c10 = sorted(c.items(), key=operator.itemgetter(1),reverse=True)
+c10 = collections.OrderedDict(sorted(c.items()))
 
 content = "A\tC\tG\tT\n\n"+str(c1)+"\n"+str(c2)+"\n"+str(c3)+"\n"+str(c4)+"\n"+str(c5)+"\n"+str(c6)+"\n"+str(c7)+"\n"+str(c8)+"\n"+str(c9)+"\n"+str(c10)
 
-text_file = open("ARF2_DR_matrixBis.txt", "w")
+text_file = open("ARF2_DR8_matrix.txt", "w")
 text_file.write(str(content))
 text_file.close()
 
