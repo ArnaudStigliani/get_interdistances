@@ -1,6 +1,6 @@
 import ast
 import csv
-with open('list_of_the_LFY_regulated_genes_from_prediction_with_expression_data_with_non_conserved_BS.txt', 'r') as f:
+with open('list_of_the_LFY_regulated_genes_from_prediction_with_expression_data.txt', 'r') as f:
 	mylist = ast.literal_eval(f.read())
 
 dataBase = []	
@@ -13,8 +13,7 @@ with open('tab_sep_LFY_regulated_genes_from_database.csv', 'rb') as csvfile:
 		if line[4] == "FC_35sLFY_LER" :
 			print(1)
 		else :
-			if (float(line[49]) < 1 and float(line[51]) < 0.05) or (float(line[49]) > 1 and float(line[51
-			3]) < 0.05) :
+			if (float(line[9]) < 1 and float(line[11]) < 0.05) or (float(line[9]) > 1 and float(line[13]) < 0.05) :
 				dataBase.append(line[2])
 				
 print("len(dataBase) : ",len(dataBase))
