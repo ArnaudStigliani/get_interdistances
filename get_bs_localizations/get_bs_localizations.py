@@ -38,8 +38,8 @@ parser.add_argument("--threshold", "-th",nargs='+',type=int,default= -12)
 parser.add_argument("--Interdistance_maxValue", "-maxInter", type=int,default= 20)
 args = parser.parse_args()
 
-#python get_oligo_bs_localizations_with_associated_scores.py -fac "ARF5" -pc 0.001 -maxInter 20 -th -12
-#python get_oligo_bs_localizations_with_associated_scores.py -fac "ARF2" -pc 0.001 -maxInter 20 -th -15
+#python get_bs_localizations.py -fac "ARF5" -pc 0.001 -maxInter 20 -th -12
+#python get_bs_localizations.py -fac "ARF2" -pc 0.001 -maxInter 20 -th -15
 
 factorTranscription = args.factor
 pseudoCount = args.pseudoCount
@@ -49,12 +49,14 @@ Interdistance_maxValue = args.Interdistance_maxValue
 ###################Parameters we can change#################
 
 if factorTranscription == "ARF2" :
-	FastaFile = "IR7.fas" 
+	#FastaFile = "IR7.fas" 
+	FastaFile = "test.fas" 
 	MatrixFile = "../matrix/ARF2_OMalley_matrixC.txt" 
 	matrixType = "freq" 
 	
 if factorTranscription == "ARF5" :
-	FastaFile = "IR7.fas" 
+	FastaFile = "TMO5_promoter.fas" 
+	#FastaFile = "test.fas" 
 	MatrixFile = "../matrix/ARF5_OMalley_Cmatrix.txt" 
 	matrixType = "freq" 
 
@@ -92,21 +94,23 @@ def interdistance_calcul(DR,ER,IR,good_score_positions) :
 				if firstSubSeq[1] == ">" and secondSubSeq[1] == ">" :
 					d = (int(secondSubSeq[0])  ) - (int(firstSubSeq[0]) + 6  )
 					if Interdistance_maxValue >= d >= 0 :
-						DR = DR + "DR" + str(d) + ", "
+						DR = DR + "DR" + str(d) + ": " + str([firstSubSeq,secondSubSeq]) + ", "
 				if firstSubSeq[1] == "<" and secondSubSeq[1] == "<" :
 					d = (int(secondSubSeq[0]) ) - (int(firstSubSeq[0]) + 6 )
 					if Interdistance_maxValue >= d >= 0 :
-						DR = DR + "DR" + str(d) + ", "
+						DR = DR + "DR" + str(d) + ": " + str([firstSubSeq,secondSubSeq]) + ", "
 				if firstSubSeq[1] == ">" and secondSubSeq[1] == "<" :
-					d = (int(secondSubSeq[0])  ) - (int(firstSubSeq[0]) + 6  )
-					if Interdistance_maxValue >= str(d) >= 0 :
-						ER = ER + "ER" + str(d) + ", "
+					print(firstSubSeq)
+					print(secondSubSeq)
+					d = (int(secondSubSeq[0])  ) - (int(firstSubSeq[0]) + 6 )
+					print(d)
+					if Interdistance_maxValue >= d >= 0 :
+						print(2)
+						ER = ER + "ER" + str(d) + ": "+ str([firstSubSeq,secondSubSeq]) +", "
 				if firstSubSeq[1] == "<" and secondSubSeq[1] == ">" :
-					print("(secondSubSeq[0]) : ",secondSubSeq[0])
-					print("firstSubSeq[0] : ",firstSubSeq[0])
 					d = (int(secondSubSeq[0])  ) - (int(firstSubSeq[0]) + 6  )
 					if Interdistance_maxValue >= d >= 0 :
-						IR = IR + "IR" + str(d) + ", "
+						IR = IR + "IR" + str(d) + ": " + str([firstSubSeq,secondSubSeq]) + ", "
 		
 	return(DR,ER,IR)	
 	
@@ -119,7 +123,7 @@ def get_interdist(matF,matRev,FastaFile,threshold,factorTranscription,Interdista
 
 	all_data = []
 	sequences_ = ""
-	explanation = ["Position of the T of the \"TGTC\"", "strand", "score", "binding site"]
+	explanation = ["Position of the T of the \"TGTCNN\" or of the N of the \"NNGACA\" if the motif is on the complementary strand" , "strand", "score", "binding site"]
 	
 	# We look at all the fasta sequences:
 	for s in sorted(sequences):
@@ -168,7 +172,10 @@ def get_interdist(matF,matRev,FastaFile,threshold,factorTranscription,Interdista
 
 				#These lines allows to retrieve the position and the strand where there is a predicted binding site. 
 				#You can change the threshold.
-
+				#print("scoreStrandPos : ",scoreStrandPos)
+				#print("str(strandPos[3:9]) : ",str(strandPos[3:9]))
+				#print("scoreStrandNeg : ",scoreStrandNeg)
+				#print("str(strandPos[3:9]) : ",str(strandPos[1:7]))
 				if scoreStrandPos > threshold:
 					if factorTranscription == "ARF2" :
 						seq2 = seq2 + seq[a:c+2].upper() + " "
@@ -190,7 +197,7 @@ def get_interdist(matF,matRev,FastaFile,threshold,factorTranscription,Interdista
 						print("c+2 : ",c+2)
 						good_score_positions.append([c+2,"<",round(scoreStrandNeg,2),str(strandPos[1:7])])
 		seq2 = seq2 + seq[a:].upper()
-		print("good_score_positions : ",good_score_positions)
+		#print("good_score_positions : ",good_score_positions)
 		DR,ER,IR = interdistance_calcul(DR,ER,IR,good_score_positions)
 		if DR == "" :
 			DR = "nothing, "
@@ -199,7 +206,7 @@ def get_interdist(matF,matRev,FastaFile,threshold,factorTranscription,Interdista
 		if IR == "" :
 			IR = "nothing, "
 			
-		sequences_ = sequences_ + seq_id + "\n" + seq2 + "\n"  + "DR : " + str(DR) + "ER : "+ str(ER) + "IR : " + str(IR) + "\n" + str(explanation) + "\n" + str(good_score_positions) + "\n\n\n"
+		sequences_ = sequences_ + seq_id + "\n" + seq2 + "\n\n" + str(explanation) + "\nDR : " + str(DR) + "\nER : "+ str(ER) + "\nIR : " + str(IR) + "\n"  + "\n\nAll the sites:\n" + str(good_score_positions) + "\n\n\n"
 	return(sequences_)
 
 ########################################### About the main matrix #######################
@@ -244,6 +251,6 @@ sequences_ = get_interdist(matScore,matRev,FastaFile,threshold,factorTranscripti
 
 output_presentation = "Here the binding sites are present after a white space. For example, with the sequence \n\"AGTAGTCAT TGT CAGATAGAAAGAAAGAG CAGACAAAAGGATCG\"\nBecause a binding site has a length of 6 bp, this means there is a first binding site: \nTGTCAGA, a second one: CAGATA and a last one: CAGACA.\nThe matrix used is: "+MatrixFile + "\n\n\n\n"
 		
-text_file = open("localization_of_the_"+factorTranscription+"_binding_sites.txt", "w")
+text_file = open("localization_of_the_"+factorTranscription+"_binding_sites_on_"+FastaFile+".txt", "w")
 text_file.write(output_presentation+str(sequences_))
 text_file.close()

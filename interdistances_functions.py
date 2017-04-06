@@ -1,5 +1,6 @@
 import re
 import numpy as np
+from Bio import SeqIO
 
 ####################### This is useful to calculate interdependances ###########
 
@@ -61,12 +62,6 @@ def get_dependency_matrix(dependencyFile,num) :
 		index4 = index4 + 64
 		
 	return(dependency_matrix_associated_with_position)
-	
-def divide(a, b):
-    if b == 0:
-        return np.nan
-    else: 
-        return a/b
 
 def seq_c(site):
         site_i = site[-1::-1]
@@ -101,3 +96,183 @@ def add_scores_associated_with_interdependent_positions(dependency_matrix,scoreS
 	scoreStrandPos = scoreStrandPos + dependency_matrix[1][codigo[site1]] + dependency_matrix[3][codigo[site2]] + dependency_matrix[5][codigo[site3]]
 	scoreStrandNeg = scoreStrandNeg + dependency_matrix[1][codigo[Csite1]] + dependency_matrix[3][codigo[Csite2]] + dependency_matrix[5][codigo[Csite3]]
 	return(scoreStrandPos, scoreStrandNeg)
+
+def interdistance_calcul(InterDR,InterER,InterIR,sum_threshold,good_score_positions,factorTranscription,lenMotif,Interdistance_maxValue) :
+	for first in range(0,len(good_score_positions)-1) :
+		firstSubSeq = good_score_positions[first]
+			
+		for second in range(first+1,len(good_score_positions)) :
+			secondSubSeq = good_score_positions[second]
+
+			'''
+			Here we do different substractions according to we get a Direct Repeat (DR), an Inverted Repeat (IR) or an Everted Repeat (ER).
+			Because In the litterature, The interdistance calculation was made between subsequences from our matrix
+			and not between the whole sequences from our matrix.
+			So according to your specific interdistance calculations you can change these lines.
+			'''
+			
+			if factorTranscription == "ARF2" :
+				if sum_threshold == True:
+					if int(firstSubSeq[2]) + int(secondSubSeq[2]) > sum_thresold :
+						if firstSubSeq[1] == secondSubSeq[1] :
+							d = ( int(secondSubSeq[0]) +2 ) -( int(firstSubSeq[0]) + lenMotif -2)
+							if Interdistance_maxValue >= d >= 0 :
+								InterDR[d] += 1
+						if firstSubSeq[1] == ">" and secondSubSeq[1] == "<" :
+							d = ( int(secondSubSeq[0]) +2 ) -( int(firstSubSeq[0]) + lenMotif -2 )
+							if Interdistance_maxValue >= d >= 0 :
+								InterER[d] += 1
+						if firstSubSeq[1] == "<" and secondSubSeq[1] == ">" :
+							d = ( int(secondSubSeq[0]) +2 ) -( int(firstSubSeq[0]) + lenMotif -2 )
+							if Interdistance_maxValue >= d >= 0 :
+								InterIR[d] += 1
+				else:
+					if firstSubSeq[1] == secondSubSeq[1] :
+						d = ( int(secondSubSeq[0]) +2 ) -( int(firstSubSeq[0]) + lenMotif -2)
+						if Interdistance_maxValue >= d >= 0 :
+							InterDR[d] += 1
+					if firstSubSeq[1] == ">" and secondSubSeq[1] == "<" :
+						d = ( int(secondSubSeq[0]) +2 ) -( int(firstSubSeq[0]) + lenMotif -2 )
+						if Interdistance_maxValue >= d >= 0 :
+							InterER[d] += 1
+					if firstSubSeq[1] == "<" and secondSubSeq[1] == ">" :
+						d = ( int(secondSubSeq[0]) +2 ) -( int(firstSubSeq[0]) + lenMotif -2 )
+						if Interdistance_maxValue >= d >= 0 :
+							InterIR[d] += 1
+
+			if factorTranscription == "ARF5" :
+				if sum_threshold == True :
+					if int(firstSubSeq[2]) + int(secondSubSeq[2]) > sum_thresold :
+						if firstSubSeq[1] == ">" and secondSubSeq[1] == ">" :
+							d = ( int(secondSubSeq[0]) +3 ) -( int(firstSubSeq[0]) + lenMotif -1 )
+							if Interdistance_maxValue >= d >= 0 :
+								InterDR[d] += 1
+						if firstSubSeq[1] == "<" and secondSubSeq[1] == "<" :
+							d = ( int(secondSubSeq[0]) +1 ) -( int(firstSubSeq[0]) + lenMotif -3)
+							if Interdistance_maxValue >= d >= 0 :
+								InterDR[d] += 1
+						if firstSubSeq[1] == ">" and secondSubSeq[1] == "<" :
+							d = ( int(secondSubSeq[0]) +1 ) -( int(firstSubSeq[0]) + lenMotif -1 )
+							if Interdistance_maxValue >= d >= 0 :
+								InterER[d] += 1
+						if firstSubSeq[1] == "<" and secondSubSeq[1] == ">" :
+							d = ( int(secondSubSeq[0]) +3 ) -( int(firstSubSeq[0]) + lenMotif -3 )
+							if Interdistance_maxValue >= d >= 0 :
+								InterIR[d] += 1
+				else :
+					if firstSubSeq[1] == ">" and secondSubSeq[1] == ">" :
+						d = ( int(secondSubSeq[0]) +3 ) -( int(firstSubSeq[0]) + lenMotif -1 )
+						if Interdistance_maxValue >= d >= 0 :
+							InterDR[d] += 1
+					if firstSubSeq[1] == "<" and secondSubSeq[1] == "<" :
+						d = ( int(secondSubSeq[0]) +1 ) -( int(firstSubSeq[0]) + lenMotif -3)
+						if Interdistance_maxValue >= d >= 0 :
+							InterDR[d] += 1
+					if firstSubSeq[1] == ">" and secondSubSeq[1] == "<" :
+						d = ( int(secondSubSeq[0]) +1 ) -( int(firstSubSeq[0]) + lenMotif -1 )
+						if Interdistance_maxValue >= d >= 0 :
+							InterER[d] += 1
+					if firstSubSeq[1] == "<" and secondSubSeq[1] == ">" :
+						d = ( int(secondSubSeq[0]) +3 ) -( int(firstSubSeq[0]) + lenMotif -3 )
+						if Interdistance_maxValue >= d >= 0 :
+							InterIR[d] += 1
+							
+			if factorTranscription == "LFY_matrix_19nucl" :
+				d = int(secondSubSeq[0]) - (int(firstSubSeq[0])+ lenMotif)
+				if Interdistance_maxValue >= d >= 0 :
+					InterDR[d] += 1
+					InterER[d] += 1
+					InterIR[d] += 1
+		
+	return(InterDR,InterER,InterIR)
+	
+def get_interdist(matF,matRev,FastaFile,threshold,factorTranscription,Interdistance_maxValue,sum_threshold,lenMotif,dependencyFile):
+	# This line allows to retrieve all the sequences from the fasta file
+	sequences = SeqIO.to_dict(SeqIO.parse(FastaFile, "fasta"))
+
+	print "  There are %s sequence(s) to analyze"%(len(sequences))
+	
+	# We will store in these lists all the occurences of each kind of interdistances between motifs found in all sequences.
+	DR = [] 
+	ER = [] 
+	IR = [] 
+	for a in threshold :
+		DR.append([0] * (Interdistance_maxValue + 1) )
+		ER.append([0] * (Interdistance_maxValue + 1) )
+		IR.append([0] * (Interdistance_maxValue + 1) )
+	
+	score_occurence = 0
+	
+	# We look at all the fasta sequences:
+	for s in sequences:
+		# We will store in this list all the best scores (see the threshold after) found for subsequences of one sequence
+		#if type(threshold) is list:
+		good_score_positions = [] 
+		if sum_threshold == False :
+			for a in threshold :
+				good_score_positions.append( [] )
+		bestScore = 0
+		positionOfTheBestScore = 0
+		# This line allows to retrieve the DNA sequence
+		seq = sequences[s].seq
+		id=sequences[s].id
+
+		# We look at each sub-sequences of the whole sequence. Each sub-sequence has the same length that the matrix length.
+		for c in range(len(seq) - (lenMotif -1)):
+			strandPos = seq[c:c+lenMotif].upper()
+			test = 0
+			for nu in strandPos :
+				if nu not in ["A","C","G","T"]:
+					test = 1
+			if test == 1:
+				score = "NA"
+			else :
+				n = 0
+				#These lines allows to calculate a score for one sub-sequence
+				scoreStrandPos = 0
+				scoreStrandNeg = 0 
+				while n<lenMotif:
+					if strandPos[n] == 'A':
+						scoreStrandPos = scoreStrandPos + matF[n*4]
+						scoreStrandNeg = scoreStrandNeg + matRev[n*4]
+					elif strandPos[n] == 'C':
+						scoreStrandPos = scoreStrandPos + matF[n*4+1]
+						scoreStrandNeg = scoreStrandNeg + matRev[n*4+1]
+					elif strandPos[n] == 'G':
+						scoreStrandPos = scoreStrandPos + matF[n*4+2]
+						scoreStrandNeg = scoreStrandNeg + matRev[n*4+2]
+					elif strandPos[n] == 'T':
+						scoreStrandPos = scoreStrandPos + matF[n*4+3]
+						scoreStrandNeg = scoreStrandNeg + matRev[n*4+3]			
+					n += 1
+		
+				if dependencyFile != "" : 			
+					scoreStrandPos, scoreStrandNeg = add_scores_associated_with_interdependent_positions(get_dependency_matrix(dependencyFile,num),scoreStrandPos,scoreStrandNeg,strandPos)
+
+		
+				#These lines allows to retrieve the position and the strand where there is a predicted binding site. 
+				#You can change the threshold.
+				if sum_threshold == True :
+					if scoreStrandPos > min(threshold):
+						good_score_positions.append([c+1,">",scoreStrandPos])
+					if scoreStrandNeg > min(threshold):
+						good_score_positions.append([c+1,"<",scoreStrandNeg])
+				else :
+					for a , b in zip(good_score_positions, threshold) :
+						if scoreStrandPos > b:
+							score_occurence = score_occurence + 1
+							a.append([c+1,">",scoreStrandPos])
+						if factorTranscription != "LFY_matrix_19nucl" :
+							if scoreStrandNeg > b:
+								score_occurence = score_occurence + 1
+								a.append([c+1,"<",scoreStrandNeg])
+				
+		# Once we have stored all the positions, we calculate all the interdistances:
+		if sum_threshold == True :
+			for interDIR, interEVER, interINVER,sum_threshold in zip(DR,ER,IR,threshold) :
+				interdistance_calcul(interDIR,interEVER,interINVER,sum_thresold,good_score_positions,factorTranscription,lenMotif,Interdistance_maxValue)
+		else :
+			for goodScores, interDIR, interEVER, interINVER in zip(good_score_positions,DR,ER,IR) :
+				InterDR,InterER,InterIR = interdistance_calcul(interDIR,interEVER,interINVER,threshold,goodScores,factorTranscription,lenMotif,Interdistance_maxValue)
+	#print("score_occurence : ",score_occurence)
+	return(DR,ER,IR)
