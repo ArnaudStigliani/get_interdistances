@@ -1,0 +1,15 @@
+Here the binding sites are present after a white space. For example, with the sequence 
+"AGTAGTCAT TGT CAGATAGAAAGAAAGAG CAGACAAAAGGATCG"
+Because a binding site has a length of 6 bp, this means there is a first binding site: 
+TGTCAGA, a second one: CAGATA and a last one: CAGACA.
+The matrix used is: ../matrix/ARF2_OMalley_matrixC.txt
+
+
+
+test
+TT GG TCTCT GGTC GG TCGACAAT
+DR : DR1, DR5, DR3, ER : ER7, ER5, ER0, IR : nothing, 
+['Position of the T of the "TGTC"', 'strand', 'score', 'binding site']
+[[3, '>', -5.01, 'GGTCTC'], [5, '>', -11.18, 'TCTCTG'], [10, '>', -4.59, 'GGTCGG'], [14, '>', -10.19, 'GGTCGA'], [16, '<', -9.01, 'TCGACA']]
+
+
