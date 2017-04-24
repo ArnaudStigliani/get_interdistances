@@ -37,6 +37,8 @@ parser.add_argument("--pseudoCount", "-pc",type = float, default = 0.001)
 parser.add_argument("--threshold", "-th",nargs='+',type = int, default= -25 -23- 21)
 parser.add_argument("--Interdistance_maxValue", "-maxInter", type = int, default= 20)
 parser.add_argument("--histo", "-histo", type = bool, default= False)
+parser.add_argument("--points", "-points", type = bool, default= False)
+parser.add_argument("--curve", "-curve", type = bool, default= False)
 parser.add_argument("--sum_threshold", "-sum_threshold", type = bool, default= False)
 
 args = parser.parse_args()
@@ -52,6 +54,7 @@ pseudoCount = args.pseudoCount
 threshold = args.threshold
 Interdistance_maxValue = args.Interdistance_maxValue 
 histo = args.histo
+points = args.points
 sum_threshold = args.sum_threshold
     
 if histo == True and len(threshold) > 1 : 
@@ -165,9 +168,6 @@ if negative_sets :
 		rate_ER = sum(b) / sum(e)
 		rate_IR = sum(c) / sum(f)
 rate = [rate_DR,rate_ER,rate_IR]
-rate.append([rate_DR,rate)
-rate.append(rate_ER)
-rate.append(rate_IR)
 
 relative_DR = []
 relative_ER = []
@@ -189,9 +189,14 @@ if negative_sets :
 		relative_IR.append( [x / float(c) for x in b] )
 		if len(negative_sets) > 0 :
 			relative_IR_neg.append( [x / float(e) for x in d] )
-		
+
+command = sys.argv			
+			
 if histo == True and negative_sets :
-	negative_sets_histo(Interdistance_maxValue,relative_DR,relative_DR_neg,relative_ER,relative_ER_neg,relative_IR,relative_IR_neg,factorTranscription,threshold,rate_DR,rate_ER,rate_IR)
+	negative_sets_histo(Interdistance_maxValue,relative_DR,relative_DR_neg,relative_ER,relative_ER_neg,relative_IR,relative_IR_neg,factorTranscription,threshold,rate)
 	
-if histo == False and negative_sets :
-	negative_sets_curve(Interdistance_maxValue,relative_DR,relative_DR_neg,relative_ER,relative_ER_neg,relative_IR,relative_IR_neg,factorTranscription,threshold,rate_DR,rate_ER,rate_IR)
+if histo == False and points == False and negative_sets :
+	negative_sets_curve(Interdistance_maxValue,relative_DR,relative_DR_neg,relative_ER,relative_ER_neg,relative_IR,relative_IR_neg,factorTranscription,threshold,rate)
+	
+if points == True and negative_sets :
+	negative_sets_points(Interdistance_maxValue,relative_DR,relative_DR_neg,relative_ER,relative_ER_neg,relative_IR,relative_IR_neg,factorTranscription,threshold,rate,command)

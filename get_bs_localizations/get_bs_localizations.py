@@ -29,6 +29,12 @@ import argparse
 import logging
 from optparse import OptionParser
 from scipy import stats
+import PIL
+from PIL import ImageFont
+from PIL import Image
+from PIL import ImageDraw
+from PIL import ImageEnhance
+#import pygame
 
 parser = argparse.ArgumentParser()                                               
 
@@ -251,6 +257,27 @@ sequences_ = get_interdist(matScore,matRev,FastaFile,threshold,factorTranscripti
 
 output_presentation = "Here the binding sites are present after a white space. For example, with the sequence \n\"AGTAGTCAT TGT CAGATAGAAAGAAAGAG CAGACAAAAGGATCG\"\nBecause a binding site has a length of 6 bp, this means there is a first binding site: \nTGTCAGA, a second one: CAGATA and a last one: CAGACA.\nThe matrix used is: "+MatrixFile + "\n\n\n\n"
 		
-text_file = open("localization_of_the_"+factorTranscription+"_binding_sites_on_"+FastaFile+".txt", "w")
-text_file.write(output_presentation+str(sequences_))
-text_file.close()
+#text_file = open("localization_of_the_"+factorTranscription+"_binding_sites_on_"+FastaFile+".txt", "w")
+#text_file.write(output_presentation+str(sequences_))
+#text_file.close()
+black = (0,0,0)
+white = (255,255,255)
+
+width = 2000
+height = 1000
+def draw_underlined_text(draw, pos, text, **options):    
+	twidth, theight = draw.textsize(text)
+	lx, ly = pos[0], pos[1] + theight
+	draw.text(pos, text, **options)
+	draw.line((lx, ly, lx + twidth, ly), **options)
+img = Image.new("RGBA", (width,height),white)
+draw = ImageDraw.Draw(img)
+w, h = draw.textsize(output_presentation+str(sequences_))
+draw_underlined_text(draw, (50, 150), output_presentation, fill=0)
+draw_underlined_text(draw, (50, 300), str(sequences_), fill=128)
+draw = ImageDraw.Draw(img)
+img.show
+img.save("result.png")
+
+
+
