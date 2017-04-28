@@ -163,12 +163,13 @@ def negative_sets_points(Interdistance_maxValue,relative_DR,relative_DR_neg,rela
 	ax0.set_xlabel("", size = 16)
 	indexes1 = np.arange(3)
 	plt.xticks(indexes1 + width * 0.5, ('DR', 'ER', 'IR'))
-	ax0.axis([0, 3, 0, 1.5])
+	ax0.axis([0, 3, 0, 2.5])
+	print("rate : ",rate)
 	ax0.bar(indexes1, rate , width , color = 'w')
 	ax0.set_ylabel(r'$\sum$' + ' DRn+, ERn+, IRn+ / ' + r'$\sum$' + 'DRn-, ERn-, IRn- , respectively with a threshold of -12', size = 16)
 	points = ['bo','go','ro','co','mo','yo','ko']
 	turn = 0
-	plt.text(-3.6, -0.1, command)
+	plt.text(-3.6, -0.2, command)
 	
 	maxi = []
 	for a,b in zip(relative_DR,relative_DR_neg) :

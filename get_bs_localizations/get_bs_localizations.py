@@ -29,12 +29,10 @@ import argparse
 import logging
 from optparse import OptionParser
 from scipy import stats
-import PIL
-from PIL import ImageFont
-from PIL import Image
-from PIL import ImageDraw
-from PIL import ImageEnhance
-#import pygame
+from docx import Document
+from docx.shared import Inches
+from docx.shared import RGBColor
+
 
 parser = argparse.ArgumentParser()                                               
 
@@ -51,12 +49,13 @@ factorTranscription = args.factor
 pseudoCount = args.pseudoCount
 threshold = args.threshold
 Interdistance_maxValue = args.Interdistance_maxValue
+
                     
 ###################Parameters we can change#################
 
 if factorTranscription == "ARF2" :
 	#FastaFile = "IR7.fas" 
-	FastaFile = "test.fas" 
+	FastaFile = "IAA19.fas" 
 	MatrixFile = "../matrix/ARF2_OMalley_matrixC.txt" 
 	matrixType = "freq" 
 	
@@ -67,6 +66,9 @@ if factorTranscription == "ARF5" :
 	matrixType = "freq" 
 
 ############################################################################### 
+	
+document = Document()
+document.add_heading("Localization of the "+factorTranscription+" binding sites on "+FastaFile, 0)	
 	
 def interdistance_calcul(DR,ER,IR,good_score_positions) :
 	for first in range(0,len(good_score_positions)-1) :
@@ -120,100 +122,177 @@ def interdistance_calcul(DR,ER,IR,good_score_positions) :
 		
 	return(DR,ER,IR)	
 	
-def get_interdist(matF,matRev,FastaFile,threshold,factorTranscription,Interdistance_maxValue):
-	# This line allows to retrieve all the sequences from the fasta file
-	sequences = SeqIO.to_dict(SeqIO.parse(FastaFile, "fasta"))
-	print(sequences)
 
-	print "  There are %s sequence(s) to analyze"%(len(sequences)) 
+# These 3 lines allows to retrieve the matrix from the file
+F = open(MatrixFile,"r")
+matrix = F.read().replace("\r","\n") + "\n"
+F.close()
 
-	all_data = []
-	sequences_ = ""
-	explanation = ["Position of the T of the \"TGTCNN\" or of the N of the \"NNGACA\" if the motif is on the complementary strand" , "strand", "score", "binding site"]
+# These 3 lines allows to retrieve all the individual frequency values from the matrix and put them in order into a list
+import re
+num = re.compile(r"([+-]?\d+[.,]\d+)")
+Mdata = num.findall(matrix)
+
+matF, lenMotif = get_score_matrix(Mdata,matrixType,pseudoCount)
+
+# The following line allows to produce the reversed matrix
+'''if we take the example given before : A T G C
+			Position 1:      0.4444  0.155  0.654   0.645
+			Position 2:      0.1645  0.1565 0.21614 0.16456
+Now, we can notice that scores change between the positions 1 and 2, and between A and T, and between G and C.
+So we can calculate with this reverse matrix, the score of the complementary strand.
+'''
+matRev = list(reversed(matF))	
 	
-	# We look at all the fasta sequences:
-	for s in sorted(sequences):
-		# We will store in this list all the best scores (see the threshold after) found for subsequences of one sequence
-		#if type(threshold) is list:
-		good_score_positions = [] 
-		
-		DR = ""
-		ER = ""
-		IR = ""
-		
-		# This line allows to retrieve the DNA sequence
-		seq = sequences[s].seq
-		seq2 = ""
-		seq_id = sequences[s].id
-		print("seq_id : ",seq_id)
-		a = 0
-		# We look at each sub-sequences of the whole sequence. Each sub-sequence has the same length that the matrix length.
-		for c in range(len(seq) - (lenMotif -1)):
-			strandPos = seq[c:c+lenMotif].upper()
-			test = 0
-			for nu in strandPos :
-				if nu not in ["A","C","G","T"]:
-					test = 1
-			if test == 1:
-				score = "NA"
-			else :
-				index = 0
-				#These lines allows to calculate a score for one sub-sequence
-				scoreStrandPos = 0
-				scoreStrandNeg = 0 
-				while index < lenMotif:
-					if strandPos[index] == 'A':
-						scoreStrandPos = scoreStrandPos + matF[index*4]
-						scoreStrandNeg = scoreStrandNeg + matRev[index*4]
-					elif strandPos[index] == 'C':
-						scoreStrandPos = scoreStrandPos + matF[index*4+1]
-						scoreStrandNeg = scoreStrandNeg + matRev[index*4+1]
-					elif strandPos[index] == 'G':
-						scoreStrandPos = scoreStrandPos + matF[index*4+2]
-						scoreStrandNeg = scoreStrandNeg + matRev[index*4+2]
-					elif strandPos[index] == 'T':
-						scoreStrandPos = scoreStrandPos + matF[index*4+3]
-						scoreStrandNeg = scoreStrandNeg + matRev[index*4+3]			
-					index += 1
+# This line allows to retrieve all the sequences from the fasta file
+sequences = SeqIO.to_dict(SeqIO.parse(FastaFile, "fasta"))
+print(sequences)
 
-				#These lines allows to retrieve the position and the strand where there is a predicted binding site. 
-				#You can change the threshold.
-				#print("scoreStrandPos : ",scoreStrandPos)
-				#print("str(strandPos[3:9]) : ",str(strandPos[3:9]))
-				#print("scoreStrandNeg : ",scoreStrandNeg)
-				#print("str(strandPos[3:9]) : ",str(strandPos[1:7]))
-				if scoreStrandPos > threshold:
-					if factorTranscription == "ARF2" :
-						seq2 = seq2 + seq[a:c+2].upper() + " "
-						a = c+2
-						good_score_positions.append([c+3,">",round(scoreStrandPos,2),str(strandPos[2:8])])
-					if factorTranscription == "ARF5" :
-						seq2 = seq2 + seq[a:c+3].upper() + " "
-						a = c+3
-						print("c+4 : ",c+4)
-						good_score_positions.append([c+4,">",round(scoreStrandPos,2),str(strandPos[3:9])])
-				if scoreStrandNeg > threshold:
-					if factorTranscription == "ARF2" :
-						seq2 = seq2 + seq[a:c+2].upper() + " "
-						a = c+2
-						good_score_positions.append([c+3,"<",round(scoreStrandNeg,2),str(strandPos[2:8])])
-					if factorTranscription == "ARF5" :
-						seq2 = seq2 + seq[a:c+1].upper() + " "
-						a = c+1
-						print("c+2 : ",c+2)
-						good_score_positions.append([c+2,"<",round(scoreStrandNeg,2),str(strandPos[1:7])])
-		seq2 = seq2 + seq[a:].upper()
-		#print("good_score_positions : ",good_score_positions)
-		DR,ER,IR = interdistance_calcul(DR,ER,IR,good_score_positions)
-		if DR == "" :
-			DR = "nothing, "
-		if ER == "" :
-			ER = "nothing, "
-		if IR == "" :
-			IR = "nothing, "
-			
-		sequences_ = sequences_ + seq_id + "\n" + seq2 + "\n\n" + str(explanation) + "\nDR : " + str(DR) + "\nER : "+ str(ER) + "\nIR : " + str(IR) + "\n"  + "\n\nAll the sites:\n" + str(good_score_positions) + "\n\n\n"
-	return(sequences_)
+print "  There are %s sequence(s) to analyze"%(len(sequences)) 
+
+all_data = []
+sequences_ = ""
+explanation = ["Position of the T of the \"TGTCNN\" or of the N of the \"NNGACA\" if the motif is on the complementary strand" , "strand", "score", "binding site"]
+
+# We look at all the fasta sequences:
+for s in sorted(sequences):
+	# We will store in this list all the best scores (see the threshold after) found for subsequences of one sequence
+	#if type(threshold) is list:
+	good_score_positions = [] 
+	
+	DR = ""
+	ER = ""
+	IR = ""
+	
+	# This line allows to retrieve the DNA sequence
+	seq = sequences[s].seq
+	seq2 = ""
+	seq_id = sequences[s].id
+	print("seq_id : ",seq_id)
+	a = 0
+	p = document.add_paragraph("")
+	# We look at each sub-sequences of the whole sequence. Each sub-sequence has the same length that the matrix length.
+	for c in range(len(seq) - (lenMotif -1)):
+		strandPos = seq[c:c+lenMotif].upper()
+		test = 0
+		for nu in strandPos :
+			if nu not in ["A","C","G","T"]:
+				test = 1
+		if test == 1:
+			score = "NA"
+		else :
+			index = 0
+			#These lines allows to calculate a score for one sub-sequence
+			scoreStrandPos = 0
+			scoreStrandNeg = 0 
+			while index < lenMotif:
+				if strandPos[index] == 'A':
+					scoreStrandPos = scoreStrandPos + matF[index*4]
+					scoreStrandNeg = scoreStrandNeg + matRev[index*4]
+				elif strandPos[index] == 'C':
+					scoreStrandPos = scoreStrandPos + matF[index*4+1]
+					scoreStrandNeg = scoreStrandNeg + matRev[index*4+1]
+				elif strandPos[index] == 'G':
+					scoreStrandPos = scoreStrandPos + matF[index*4+2]
+					scoreStrandNeg = scoreStrandNeg + matRev[index*4+2]
+				elif strandPos[index] == 'T':
+					scoreStrandPos = scoreStrandPos + matF[index*4+3]
+					scoreStrandNeg = scoreStrandNeg + matRev[index*4+3]			
+				index += 1
+
+			#These lines allows to retrieve the position and the strand where there is a predicted binding site. 
+			#You can change the threshold.
+			#print("scoreStrandPos : ",scoreStrandPos)
+			#print("str(strandPos[3:9]) : ",str(strandPos[3:9]))
+			#print("scoreStrandNeg : ",scoreStrandNeg)
+			#print("str(strandPos[3:9]) : ",str(strandPos[1:7]))
+			if scoreStrandPos > threshold:
+				print("scoreStrandPos : ",scoreStrandPos)
+				if factorTranscription == "ARF2" :
+					print("seq2 : ",seq2)
+					print("a : ",a)
+					print("c : ",c)
+					if a ==0 :
+						print(1)
+						seq2 = seq2 + seq[a:c+2].upper()
+						p.add_run(seq2)
+						print("seq[c+2:c+8] : ",seq[c+2:c+8])
+						run = p.add_run(seq[c+2:c+8])
+						run.font.color.rgb = RGBColor(0xFF, 0x00, 0xFF)
+						
+					if a != 0 and c+2 - a > -1 :
+						print(2)
+						seq2 = seq[a:c+2].upper()
+						p.add_run(seq2)
+						print("seq[a:c+8] : ",seq[a:c+8])
+						run = p.add_run(seq[a:c+8])
+						run.font.color.rgb = RGBColor(0xFF, 0x00, 0xFF)
+					
+					print("c+2 - a : ",c+2 - a)
+					if a != 0 and c+2 - a < 0 :
+						print(3)
+						print("(seq[ a :c+8]) : ",(seq[a:c+8]))
+						run = p.add_run(seq[a:c+8])
+						run.font.color.rgb = RGBColor(0xFF, 0x00, 0xFF)
+					print("\n")
+					a = c + 8
+					#p.add_run(seq2)
+					#p.add_run(str(strandPos[2:8])).bold = True
+					rest = int(a/56) + 1
+					good_score_positions.append([c+3,">",round(scoreStrandPos,2),str(strandPos[2:8]),rest])
+				#if factorTranscription == "ARF5" :
+					#seq2 = seq2 + seq[a:c+3].upper() + " "
+					#a = c+3
+					#print("c+4 : ",c+4)
+					#good_score_positions.append([c+4,">",round(scoreStrandPos,2),str(strandPos[3:9])])
+			if scoreStrandNeg > threshold:
+				if factorTranscription == "ARF2" :
+					if a ==0 :
+						print(1)
+						seq2 = seq2 + seq[a:c+2].upper()
+						p.add_run(seq2)
+						print("seq[c+2:c+8] : ",seq[c+2:c+8])
+						run = p.add_run(seq[c+2:c+8])
+						run.font.color.rgb = RGBColor(0x00, 0x00, 0xFF)
+						
+					if a != 0 and c+2 - a > -1 :
+						print(2)
+						seq2 = seq[a:c+2].upper()
+						p.add_run(seq2)
+						print("seq[c+2:c+8] : ",seq[c+2:c+8])
+						run = p.add_run(seq[c+2:c+8])
+						run.font.color.rgb = RGBColor(0x00, 0x00, 0xFF)
+					
+					print("c+2 - a : ",c+2 - a)
+					if a != 0 and c+2 - a < 0 :
+						print(3)
+						print("(seq[ a :c+8]) : ",(seq[a:c+8]))
+						run = p.add_run(seq[a:c+8])
+						run.font.color.rgb = RGBColor(0x00, 0x00, 0xFF)
+					print("\n")
+					a = c + 8
+					#p.add_run(str(strandPos[2:8])).bold = True
+					rest = int(a/56) + 1
+					good_score_positions.append([c+3,"<",round(scoreStrandNeg,2),str(strandPos[2:8]),rest])
+				#if factorTranscription == "ARF5" :
+					#seq2 = seq2 + seq[a:c+1].upper() + " "
+					#a = c+1
+					#print("c+2 : ",c+2)
+					#good_score_positions.append([c+2,"<",round(scoreStrandNeg,2),str(strandPos[1:7])])
+	p.add_run(seq[a:len(seq)])
+	
+	seq2 = seq2 + seq[a:].upper()
+	#print("good_score_positions : ",good_score_positions)
+	DR,ER,IR = interdistance_calcul(DR,ER,IR,good_score_positions)
+	if DR == "" :
+		DR = "nothing, "
+	if ER == "" :
+		ER = "nothing, "
+	if IR == "" :
+		IR = "nothing, "
+		
+	#sequences_ = sequences_ + seq_id + "\n" + seq2 + "\n\n" + str(explanation) + "\nDR : " + str(DR) + "\nER : "+ str(ER) + "\nIR : " + str(IR) + "\n"  + "\n\nAll the sites:\n" + str(good_score_positions) + "\n\n\n"
+print("str(good_score_positions) : ",str(good_score_positions))
 
 ########################################### About the main matrix #######################
 
@@ -230,47 +309,50 @@ separation between numbers can be spaces, tabulation, comas...
 
 ###############################################################################################
 
-# These 3 lines allows to retrieve the matrix from the file
-F = open(MatrixFile,"r")
-matrix = F.read().replace("\r","\n") + "\n"
-F.close()
 
-# These 3 lines allows to retrieve all the individual frequency values from the matrix and put them in order into a list
-import re
-num = re.compile(r"([+-]?\d+[.,]\d+)")
-Mdata = num.findall(matrix)
-
-matScore, lenMotif = get_score_matrix(Mdata,matrixType,pseudoCount)
-
-# The following line allows to produce the reversed matrix
-'''if we take the example given before : A T G C
-			Position 1:      0.4444  0.155  0.654   0.645
-			Position 2:      0.1645  0.1565 0.21614 0.16456
-Now, we can notice that scores change between the positions 1 and 2, and between A and T, and between G and C.
-So we can calculate with this reverse matrix, the score of the complementary strand.
-'''
-matRev = list(reversed(matScore))
 	
 ########## get INTERDISTANCE VALUES for POSITIVE sets:
 
-sequences_ = get_interdist(matScore,matRev,FastaFile,threshold,factorTranscription,Interdistance_maxValue)
+#sequences_ = get_interdist(matScore,matRev,FastaFile,threshold,factorTranscription,Interdistance_maxValue)
 
-output_presentation = "Here the binding sites are present after a white space. For example, with the sequence \n\"AGTAGTCAT TGT CAGATAGAAAGAAAGAG CAGACAAAAGGATCG\"\nBecause a binding site has a length of 6 bp, this means there is a first binding site: \nTGTCAGA, a second one: CAGATA and a last one: CAGACA.\nThe matrix used is: "+MatrixFile + "\n\n\n\n"
+#output_presentation = "Here the binding sites are coloured. For example, with the sequence \n\"AGTAGTCAT TGT CAGATAGAAAGAAAGAG CAGACAAAAGGATCG\"\nBecause a binding site has a length of 6 bp, this means there is a first binding site: \nTGTCAGA, a second one: CAGATA and a last one: CAGACA.\nThe matrix used is: "+MatrixFile + "\n\n\n\n"
 		
 #text_file = open("localization_of_the_"+factorTranscription+"_binding_sites_on_"+FastaFile+".txt", "w")
 #text_file.write(output_presentation+str(sequences_))
 #text_file.close()
 
-import PIL
-from PIL import ImageFont
-from PIL import Image
-from PIL import ImageDraw
-img = Image.new("RGBA", (1200,1000), (0,0,0))
-draw = ImageDraw.Draw(img)
-draw.text((0,0), "This is a test.\nHello", (255,255,255))
-draw.text((0,10), "This is a test2.\nHello", (255,255,255))
-draw = ImageDraw.Draw(img)
-img.save("a_test.png")
+
+#p = document.add_paragraph('A plain paragraph having some ')
+#p.add_run('bold').bold = True
+#p.add_run(' and some ')
+#p.add_run('italic.').italic = True
+
+#document.add_heading('Heading, level 1', level=1)
+#document.add_paragraph('Intense quote', style='IntenseQuote')
+
+
+#document.add_paragraph(
+    #'first item in ordered list', style='ListNumber'
+#)
+
+table = document.add_table(rows=1, cols=5)
+hdr_cells = table.rows[0].cells
+hdr_cells[0].text = 'Index'
+hdr_cells[1].text = 'sens'
+hdr_cells[2].text = 'score'
+hdr_cells[3].text = 'sequence'
+hdr_cells[4].text = 'line'
+for item in good_score_positions:
+	row_cells = table.add_row().cells
+	row_cells[0].text = str(item[0])
+	row_cells[1].text = str(item[1])
+	row_cells[2].text = str(item[2])
+	row_cells[3].text = str(item[3])
+	row_cells[4].text = str(item[4])
+
+document.add_page_break()
+
+document.save("localization_of_the_"+factorTranscription+"_binding_sites_on_"+FastaFile+".docx")
 
 
 
