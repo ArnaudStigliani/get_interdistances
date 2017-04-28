@@ -19,6 +19,12 @@ codigoi = { "A" : "T", "C" : "G", "G" : "C", "T" : "A"}
 
 ###############################################################################
 
+def divide(a, b):
+	if b == 0:
+		return np.nan
+	else: 
+		return a/b
+
 def get_score_matrix(Mdata,matrixType,pseudoCount) :
 	if matrixType == "freq" :
 		## These lines allows to transform the frequency values into scores values
@@ -186,7 +192,7 @@ def interdistance_calcul(InterDR,InterER,InterIR,sum_threshold,good_score_positi
 		
 	return(InterDR,InterER,InterIR)
 	
-def get_interdist(matF,matRev,FastaFile,threshold,factorTranscription,Interdistance_maxValue,sum_threshold,lenMotif,dependencyFile):
+def get_interdist(matF,matRev,FastaFile,threshold,factorTranscription,Interdistance_maxValue,sum_threshold,lenMotif,dependencyFile,sequence_number):
 	# This line allows to retrieve all the sequences from the fasta file
 	sequences = SeqIO.to_dict(SeqIO.parse(FastaFile, "fasta"))
 
@@ -202,7 +208,7 @@ def get_interdist(matF,matRev,FastaFile,threshold,factorTranscription,Interdista
 		IR.append([0] * (Interdistance_maxValue + 1) )
 	
 	score_occurence = 0
-	
+	nb = 0
 	# We look at all the fasta sequences:
 	for s in sequences:
 		# We will store in this list all the best scores (see the threshold after) found for subsequences of one sequence
@@ -274,5 +280,9 @@ def get_interdist(matF,matRev,FastaFile,threshold,factorTranscription,Interdista
 		else :
 			for goodScores, interDIR, interEVER, interINVER in zip(good_score_positions,DR,ER,IR) :
 				InterDR,InterER,InterIR = interdistance_calcul(interDIR,interEVER,interINVER,threshold,goodScores,factorTranscription,lenMotif,Interdistance_maxValue)
+		if sequence_number :
+			nb = nb + 1
+		if nb == sequence_number : 
+			break
 	#print("score_occurence : ",score_occurence)
 	return(DR,ER,IR)

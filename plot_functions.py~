@@ -159,26 +159,34 @@ def negative_sets_points(Interdistance_maxValue,relative_DR,relative_DR_neg,rela
 	gs = gridspec.GridSpec(1, 4, width_ratios=[1, 2,2,2]) 
 	indexes1 = range(Interdistance_maxValue + 1)
 	width = 1
-	#ax1 = fig.add_subplot(1,2,1)
 	ax0 = plt.subplot(gs[0])
 	ax0.set_xlabel("", size = 16)
 	indexes1 = np.arange(3)
 	plt.xticks(indexes1 + width * 0.5, ('DR', 'ER', 'IR'))
-	ax0.axis([0, 3, 0, 2])
+	ax0.axis([0, 3, 0, 1.5])
 	ax0.bar(indexes1, rate , width , color = 'w')
-	ax0.set_ylabel(r'$\sum$' + ' DRn+, ERn+, IRn+ / ' + r'$\sum$' + 'DRn-, ERn-, IRn- , respectively', size = 16)
-	points = ['rs','bs','gs']
+	ax0.set_ylabel(r'$\sum$' + ' DRn+, ERn+, IRn+ / ' + r'$\sum$' + 'DRn-, ERn-, IRn- , respectively with a threshold of -12', size = 16)
+	points = ['bo','go','ro','co','mo','yo','ko']
 	turn = 0
-	print("command : ",command)
-	plt.text(0, -0.2, command)
+	plt.text(-3.6, -0.1, command)
 	
+	maxi = []
+	for a,b in zip(relative_DR,relative_DR_neg) :
+		maxi.append(max(map(divide, a, b)))
+	for a,b in zip(relative_ER,relative_ER_neg) :
+		maxi.append(max(map(divide, a, b)))
+	for a,b in zip(relative_IR,relative_IR_neg) :
+		maxi.append(max(map(divide, a, b)))
+		
+	m = max(maxi)	
 	ax1 = plt.subplot(gs[1])
 	for a,b in zip(relative_DR,relative_DR_neg) :
 		indexes1 = np.arange(Interdistance_maxValue + 1)
 		#ax1 = fig.add_subplot(2,2,2)
 		ax1.set_xlabel("base pairs between TGTCGG in DRs", size = 16)
-		ax1.axis([-1, Interdistance_maxValue + 1, 0, 4])
-		plt.plot(indexes1, map(divide, a, b), points[turn])
+		ax1.axis([-1, Interdistance_maxValue + 1, 0, m + 0.5])
+		plt.plot(indexes1, map(divide, a, b), points[turn], alpha = 0.70, markersize = 13,markeredgewidth=0.0)
+		plt.plot(indexes1, map(divide, a, b), lw=2)
 		ax1.set_ylabel("DRn+ frequence / DRn- frequence", size = 16)
 		plt.text(2, 3.5, "DRn frequence = DRn / $\sum_{i=0}^{i=20}$ DR$_i$ + ER$_i$ + IR$_i$")
 		l = plt.axhline(y = 1)
@@ -191,12 +199,13 @@ def negative_sets_points(Interdistance_maxValue,relative_DR,relative_DR_neg,rela
 		indexes1 = range(Interdistance_maxValue + 1)
 		#ax1 = fig.add_subplot(1,7,4)
 		ax2.set_xlabel("base pairs between TGTCGG in ERs", size = 16)
-		ax2.axis([-1, Interdistance_maxValue + 1, 0, 4])
-		plt.plot(indexes1, map(divide, a, b), points[turn], label= r"threshold : "+str(c))
+		ax2.axis([-1, Interdistance_maxValue + 1, 0, m + 0.5])
+		plt.plot(indexes1, map(divide, a, b), points[turn], label= r"threshold : "+str(c), alpha = 0.70, markersize = 13,markeredgewidth=0.0)
+		plt.plot(indexes1, map(divide, a, b), lw=2)
 		ax2.set_ylabel("ERn+ frequence / ERn- frequence", size = 16)
 		plt.text(0, 3.5, "ERn frequence = ERn / $\sum_{i=0}^{i=20}$ DR$_i$ + ER$_i$ + IR$_i$")
 		l = plt.axhline(y = 1)
-		plt.legend(bbox_to_anchor=(0., 1.02, 1., .102), loc=3, ncol=1, mode="expand", borderaxespad=0.)
+		plt.legend(bbox_to_anchor=(0., 1.02, 1., .102), loc = "upper left", ncol = 2, mode="expand", borderaxespad=0.)
 		turn = turn + 1
 		for i in range (0,21) :
 			plt.axvline(x = i, linewidth=0.1)
@@ -206,8 +215,9 @@ def negative_sets_points(Interdistance_maxValue,relative_DR,relative_DR_neg,rela
 		indexes1 = range(Interdistance_maxValue + 1)
 		#ax1 = fig.add_subplot(1,7,6)
 		ax3.set_xlabel("base pairs between TGTCGG in IRs", size = 16)
-		ax3.axis([-1, Interdistance_maxValue + 1, 0, 4])
-		plt.plot(indexes1, map(divide, a, b), points[turn])
+		ax3.axis([-1, Interdistance_maxValue + 1, 0, m + 0.5])
+		plt.plot(indexes1, map(divide, a, b), points[turn], alpha = 0.70, markersize = 13,markeredgewidth=0.0)
+		plt.plot(indexes1, map(divide, a, b), lw=2)
 		ax3.set_ylabel("IRn+ frequence / IRn- frequence", size = 16)
 		plt.text(2, 3.5, "IRn frequence = IRn / $\sum_{i=0}^{i=20}$ DR$_i$ + ER$_i$ + IR$_i$")
 		l = plt.axhline(y = 1)

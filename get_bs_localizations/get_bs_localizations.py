@@ -260,24 +260,17 @@ output_presentation = "Here the binding sites are present after a white space. F
 #text_file = open("localization_of_the_"+factorTranscription+"_binding_sites_on_"+FastaFile+".txt", "w")
 #text_file.write(output_presentation+str(sequences_))
 #text_file.close()
-black = (0,0,0)
-white = (255,255,255)
 
-width = 2000
-height = 1000
-def draw_underlined_text(draw, pos, text, **options):    
-	twidth, theight = draw.textsize(text)
-	lx, ly = pos[0], pos[1] + theight
-	draw.text(pos, text, **options)
-	draw.line((lx, ly, lx + twidth, ly), **options)
-img = Image.new("RGBA", (width,height),white)
+import PIL
+from PIL import ImageFont
+from PIL import Image
+from PIL import ImageDraw
+img = Image.new("RGBA", (1200,1000), (0,0,0))
 draw = ImageDraw.Draw(img)
-w, h = draw.textsize(output_presentation+str(sequences_))
-draw_underlined_text(draw, (50, 150), output_presentation, fill=0)
-draw_underlined_text(draw, (50, 300), str(sequences_), fill=128)
+draw.text((0,0), "This is a test.\nHello", (255,255,255))
+draw.text((0,10), "This is a test2.\nHello", (255,255,255))
 draw = ImageDraw.Draw(img)
-img.show
-img.save("result.png")
+img.save("a_test.png")
 
 
 

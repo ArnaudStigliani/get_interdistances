@@ -36,6 +36,7 @@ parser.add_argument("--negative_sets", "-neg", nargs='*')
 parser.add_argument("--pseudoCount", "-pc",type = float, default = 0.001)
 parser.add_argument("--threshold", "-th",nargs='+',type = int, default= -25 -23- 21)
 parser.add_argument("--Interdistance_maxValue", "-maxInter", type = int, default= 20)
+parser.add_argument("--sequence_number", "-sequence_number", type = int, default= 1000)
 parser.add_argument("--histo", "-histo", type = bool, default= False)
 parser.add_argument("--points", "-points", type = bool, default= False)
 parser.add_argument("--curve", "-curve", type = bool, default= False)
@@ -44,7 +45,7 @@ parser.add_argument("--sum_threshold", "-sum_threshold", type = bool, default= F
 args = parser.parse_args()
 
 #python get_interdistances.py -fac "ARF2" -pc 0.001 -maxInter 20 -th -12 -histo True -neg ../sequences/ARF2_neg1.fas ../sequences/ARF2_neg2.fas ../sequences/ARF2_neg3.fas ../sequences/ARF2_neg4.fas
-#python get_interdistances.py -fac "ARF5" -pc 0.001 -maxInter 20 -th -15 -histo True -neg
+#python get_interdistances.py -fac "ARF5" -pc 0.001 -maxInter 20 -th -10 -11 -12 -neg ../sequences/ARF5_neg1.fas ../sequences/ARF5_neg2.fas ../sequences/ARF5_neg3.fas ../sequences/ARF5_neg4.fas -points True
 # python get_interdistances.py -fac "LFY_matrix_19nucl" -th -23 -histo True
 # python get_interdistances.py -fac "LFY_matrix_19nucl" -th -23 -histo True
 
@@ -53,6 +54,7 @@ negative_sets = args.negative_sets
 pseudoCount = args.pseudoCount
 threshold = args.threshold
 Interdistance_maxValue = args.Interdistance_maxValue 
+sequence_number = args.sequence_number
 histo = args.histo
 points = args.points
 sum_threshold = args.sum_threshold
@@ -71,8 +73,8 @@ if factorTranscription == "ARF2" :
 	dependencyFile = ""
 	
 if factorTranscription == "ARF5" :
-	FastaFile = "ARF5_bound_sequences.fas" 
-	MatrixFile = "ARF5_OMalley_Cmatrix.txt" 
+	FastaFile = "../sequences/ARF5_bound_sequences.fas" 
+	MatrixFile = "../matrix/ARF5_OMalley_Cmatrix.txt" 
 	matrixType = "freq" 
 	dependencyFile = ""
 	
@@ -126,9 +128,10 @@ matRev = list(reversed(matScore))
 	
 ########## get INTERDISTANCE VALUES for POSITIVE sets:
 
-InterDR, InterER, InterIR = get_interdist(matScore,matRev,FastaFile,threshold,factorTranscription,Interdistance_maxValue,sum_threshold,lenMotif,dependencyFile)
+InterDR, InterER, InterIR = get_interdist(matScore,matRev,FastaFile,threshold,factorTranscription,Interdistance_maxValue,sum_threshold,lenMotif,dependencyFile,sequence_number)
 
-##### For the negative set:
+##### Create empty lists to store interdistances occurences for the negative set:
+
 InterDR_N = []
 InterER_N = []
 InterIR_N = []
@@ -141,17 +144,17 @@ for a in threshold :
 	listThr.append(lenThr)
 	lenThr = lenThr + 1
 
-########## get INTERDISTANCE VALUES for NEGATIVE sets				
+########## get INTERDISTANCE occurences for NEGATIVE sets				
 		
 if negative_sets :
 	for fastafileN in negative_sets :
-		InterDR_N_temp, InterER_N_temp, InterIR_N_temp = get_interdist(matScore,matRev,fastafileN,threshold,factorTranscription,Interdistance_maxValue,sum_threshold,lenMotif,dependencyFile)
-
+		InterDR_N_temp, InterER_N_temp, InterIR_N_temp = get_interdist(matScore,matRev,fastafileN,threshold,factorTranscription,Interdistance_maxValue,sum_threshold,lenMotif,dependencyFile,sequence_number)
+		# addition of the occurences of every negative sets
 		for a,b,c,d in zip(InterDR_N_temp,InterER_N_temp,InterIR_N_temp,listThr) :
 			InterDR_N[d] = [x + y for x, y in zip(InterDR_N[d], a)]
 			InterER_N[d] = [x + y for x, y in zip(InterER_N[d], b)]
 			InterIR_N[d] = [x + y for x, y in zip(InterIR_N[d], c)]
-
+	# divide by the number of negative sets in order to have a mean
 	if len(negative_sets) > 0 :
 		for a,b,c,d in zip(InterDR_N,InterER_N,InterIR_N,listThr) :
 			InterDR_N[d] = [x / float(len(negative_sets)) for x in a]
@@ -160,13 +163,15 @@ if negative_sets :
 		
 interdist_sum = []
 interdist_sum_N = []
+
 if negative_sets :
 	for a,b,c,d,e,f in zip(InterDR,InterER,InterIR,InterDR_N,InterER_N,InterIR_N) :
 		interdist_sum.append(sum(a) + sum(b) + sum(c))
 		interdist_sum_N.append(sum(d) + sum(e) + sum(f))
-		rate_DR = sum(a) / sum(d)
-		rate_ER = sum(b) / sum(e)
-		rate_IR = sum(c) / sum(f)
+		print("a : ",a)
+		rate_DR = divide(sum(a), sum(d))
+		rate_ER = divide(sum(b) , sum(e))
+		rate_IR = divide(sum(c) , sum(f))
 rate = [rate_DR,rate_ER,rate_IR]
 
 relative_DR = []
@@ -178,25 +183,25 @@ relative_IR_neg = []
 
 if negative_sets :
 	for a,b,c,d,e in zip(threshold,InterDR,interdist_sum,InterDR_N,interdist_sum_N) :
-		relative_DR.append( [x / float(c) for x in b] )
+		relative_DR.append( [divide(x , float(c)) for x in b] )
 		if len(negative_sets) > 0 :
-			relative_DR_neg.append( [x / float(e) for x in d] )
+			relative_DR_neg.append( [divide(x , float(e)) for x in d] )
 	for a,b,c,d,e in zip(threshold,InterER,interdist_sum,InterER_N,interdist_sum_N) :
-		relative_ER.append( [x / float(c) for x in b] )
+		relative_ER.append( [divide(x , float(c)) for x in b] )
 		if len(negative_sets) > 0 :
-			relative_ER_neg.append( [x / float(e) for x in d] )
+			relative_ER_neg.append( [divide(x , float(e)) for x in d] )
 	for a,b,c,d,e in zip(threshold,InterIR,interdist_sum,InterIR_N,interdist_sum_N) :
-		relative_IR.append( [x / float(c) for x in b] )
+		relative_IR.append( [divide(x , float(c)) for x in b] )
 		if len(negative_sets) > 0 :
-			relative_IR_neg.append( [x / float(e) for x in d] )
+			relative_IR_neg.append( [divide(x , float(e)) for x in d] )
 
 command = sys.argv			
 			
 if histo == True and negative_sets :
-	negative_sets_histo(Interdistance_maxValue,relative_DR,relative_DR_neg,relative_ER,relative_ER_neg,relative_IR,relative_IR_neg,factorTranscription,threshold,rate)
+	negative_sets_histo(Interdistance_maxValue,relative_DR,relative_DR_neg,relative_ER,relative_ER_neg,relative_IR,relative_IR_neg,factorTranscription,threshold,rate,command)
 	
 if histo == False and points == False and negative_sets :
-	negative_sets_curve(Interdistance_maxValue,relative_DR,relative_DR_neg,relative_ER,relative_ER_neg,relative_IR,relative_IR_neg,factorTranscription,threshold,rate)
+	negative_sets_curve(Interdistance_maxValue,relative_DR,relative_DR_neg,relative_ER,relative_ER_neg,relative_IR,relative_IR_neg,factorTranscription,threshold,rate,command)
 	
 if points == True and negative_sets :
 	negative_sets_points(Interdistance_maxValue,relative_DR,relative_DR_neg,relative_ER,relative_ER_neg,relative_IR,relative_IR_neg,factorTranscription,threshold,rate,command)

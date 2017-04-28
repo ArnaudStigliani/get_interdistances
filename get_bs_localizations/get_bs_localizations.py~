@@ -265,10 +265,10 @@ white = (255,255,255)
 
 width = 2000
 height = 1000
-def draw_underlined_text(draw, pos, text, font, **options):    
-	twidth, theight = draw.textsize(text, font=font)
+def draw_underlined_text(draw, pos, text, **options):    
+	twidth, theight = draw.textsize(text)
 	lx, ly = pos[0], pos[1] + theight
-	draw.text(pos, text, font=font, **options)
+	draw.text(pos, text, **options)
 	draw.line((lx, ly, lx + twidth, ly), **options)
 img = Image.new("RGBA", (width,height),white)
 draw = ImageDraw.Draw(img)
