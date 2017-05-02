@@ -271,8 +271,8 @@ for s in sorted(sequences):
 						run.font.name = 'Courier 10 pitch'
 					a = c + 9
 
-					rest = int((c+3)/65) + 1
-					column = c+3 - int((c+3)/65) * 65
+					rest = int((c+4)/65) + 1
+					column = c+4 - int((c+4)/65) * 65
 					good_score_positions.append([c+4,">",round(scoreStrandPos,2),str(strandPos[3:9]),rest,column])
 					#seq2 = seq2 + seq[a:c+3].upper() + " "
 					#a = c+3
@@ -329,8 +329,8 @@ for s in sorted(sequences):
 						run.font.name = 'Courier 10 pitch'
 					a = c + 7
 
-					rest = int((c+3)/65) + 1
-					column = c+3 - int((c+3)/65) * 65
+					rest = int((c+2)/65) + 1
+					column = c+2 - int((c+2)/65) * 65
 					good_score_positions.append([c+2,"<",round(scoreStrandNeg,2),str(strandPos[1:7]),rest,column])
 					#seq2 = seq2 + seq[a:c+1].upper() + " "
 					#a = c+1
